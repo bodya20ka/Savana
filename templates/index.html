@@ -2,386 +2,48 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Savana | by Корж</title>
-  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
   <style>
-    :root { --bg: #17212b; --sidebar: #1e2c3a; --msg-in: #182533; --msg-out: #2b5278; --accent: #3390ec; --text: #fff; --muted: #8e8e93; --green: #4caf50; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
-    .header { background: var(--sidebar); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #0e1621; }
-    .logo { font-weight: 700; color: var(--accent); font-size: 17px; }
-    .logo span { color: var(--muted); font-size: 11px; margin-left: 5px; font-weight: 400; }
-    .tg-link { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 13px; }
-    .container { display: flex; height: calc(100vh - 44px); }
-    .sidebar { width: 320px; background: var(--sidebar); border-right: 1px solid #0e1621; display: flex; flex-direction: column; }
-    .search-box { padding: 10px; border-bottom: 1px solid #0e1621; }
-    .search-box input { width: 100%; padding: 9px 12px; border: none; border-radius: 18px; background: #242f3d; color: #fff; outline: none; font-size: 14px; }
-    .search-results { max-height: 180px; overflow-y: auto; background: #242f3d; border-radius: 8px; margin-top: 6px; display: none; position: absolute; z-index: 100; width: 300px; }
-    .search-results.show { display: block; }
-    .s-item { padding: 9px 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #0e1621; }
-    .s-item:hover { background: #2b3a4a; }
-    .s-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; position: relative; }
-    .online-dot { position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: var(--green); border-radius: 50%; border: 2px solid #242f3d; }
-    .s-name { font-size: 14px; font-weight: 500; }
-    .s-meta { font-size: 12px; color: var(--muted); }
-    
-    .chat-list { flex: 1; overflow-y: auto; }
-    .c-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #0e1621; display: flex; gap: 10px; }
-    .c-item:hover, .c-item.active { background: #202b36; }
-    .c-info { flex: 1; overflow: hidden; }
-    .c-top { display: flex; justify-content: space-between; align-items: center; }
-    .c-name { font-weight: 600; font-size: 15px; }
-    .c-time { font-size: 12px; color: var(--muted); }
-    .c-preview { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
-    
-    .create-btn { padding: 12px; background: #242f3d; text-align: center; color: var(--accent); font-weight: 700; cursor: pointer; border-top: 1px solid #0e1621; font-size: 14px; }
-    .chat { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
-    .chat-head { padding: 8px 14px; background: var(--sidebar); border-bottom: 1px solid #0e1621; display: flex; align-items: center; justify-content: space-between; }
-    .chat-head h3 { font-size: 15px; display: flex; align-items: center; gap: 6px; }
-    .status { font-size: 12px; color: var(--muted); }
-    .invite-btn { background: none; border: 1px solid var(--accent); color: var(--accent); padding: 4px 10px; border-radius: 14px; font-size: 12px; cursor: pointer; }
-    
-    .msgs { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 5px; }
-    .msg { max-width: 75%; padding: 7px 10px; border-radius: 10px; position: relative; font-size: 14px; line-height: 1.4; }
-    .msg.in { align-self: flex-start; background: var(--msg-in); }
-    .msg.out { align-self: flex-end; background: var(--msg-out); }
-    .msg .u { font-size: 11px; color: var(--accent); font-weight: 600; margin-bottom: 1px; }
-    .msg .t { font-size: 10px; color: #6c7880; text-align: right; margin-top: 2px; }
-    
-    .input-area { padding: 8px; background: var(--sidebar); display: flex; gap: 6px; border-top: 1px solid #0e1621; align-items: center; }
-    .input-area input { flex: 1; padding: 9px 12px; border: none; border-radius: 18px; background: #17212b; color: #fff; outline: none; font-size: 14px; }
-    .input-area button { background: var(--accent); color: #fff; border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 16px; }
-    .emoji-btn { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 5px; }
-    .emoji-btn:hover { color: var(--accent); }
-    
-    .emoji-picker { position: absolute; bottom: 60px; right: 10px; background: var(--sidebar); border-radius: 10px; padding: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); display: none; grid-template-columns: repeat(8, 1fr); gap: 5px; z-index: 1000; }
-    .emoji-picker.show { display: grid; }
-    .emoji-item { font-size: 20px; cursor: pointer; padding: 5px; text-align: center; border-radius: 5px; }
-    .emoji-item:hover { background: #2b3a4a; }
-    
-    .welcome { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
-    .welcome h1 { font-size: 24px; margin-bottom: 10px; color: var(--accent); }
-    .welcome p { color: var(--muted); margin-bottom: 20px; max-width: 350px; }
-    .big-btn { background: var(--accent); color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: 700; border-radius: 10px; cursor: pointer; }
-    .footer-tg { position: absolute; bottom: 10px; width: 100%; text-align: center; color: var(--muted); font-size: 12px; }
-    .footer-tg a { color: var(--accent); text-decoration: none; font-weight: 600; }
-    
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
-    .modal.show { display: flex; }
-    .modal-box { background: var(--sidebar); padding: 20px; border-radius: 12px; width: 90%; max-width: 320px; }
-    .modal-box h3 { margin-bottom: 12px; }
-    .modal-box input, .modal-box select { width: 100%; padding: 10px; margin: 6px 0; border: none; border-radius: 8px; background: #17212b; color: #fff; }
-    .modal-btns { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
-    .modal-btns button { padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-    .btn-cancel { background: #242f3d; color: #fff; }
-    .btn-ok { background: var(--accent); color: #fff; }
-
-    @media (max-width: 700px) { 
-      .sidebar { position: absolute; left: -320px; transition: 0.3s; z-index: 10; height: 100%; box-shadow: 2px 0 10px rgba(0,0,0,0.5); } 
-      .sidebar.open { left: 0; } 
-      .menu-btn { display: block; } 
-    }
-    .menu-btn { display: none; background: none; border: none; color: #fff; font-size: 20px; margin-right: 8px; }
-    .empty { text-align: center; padding: 40px; color: var(--muted); }
+    body { font-family: system-ui, sans-serif; background: #17212b; color: #fff; margin: 0; padding: 20px; }
+    .auth { max-width: 340px; margin: 50px auto; padding: 20px; background: #1e2c3a; border-radius: 10px; }
+    h2 { text-align: center; color: #3390ec; }
+    input { width: 100%; padding: 10px; margin: 8px 0; border: none; border-radius: 6px; background: #17212b; color: #fff; box-sizing: border-box; }
+    button { width: 100%; padding: 12px; margin-top: 8px; border: none; border-radius: 6px; background: #3390ec; color: #fff; font-weight: 600; cursor: pointer; }
+    .error { color: #e53935; text-align: center; margin-bottom: 8px; }
+    .switch { text-align: center; margin-top: 10px; color: #3390ec; text-decoration: none; display: block; }
   </style>
 </head>
 <body>
   {% if not user %}
-  <div style="max-width:340px;margin:50px auto;padding:20px;background:var(--sidebar);border-radius:10px;">
-    <h2 style="text-align:center;margin-bottom:15px;color:var(--accent);">🦁 Savana</h2>
-    {% if error %}<div style="color:#e53935;text-align:center;margin-bottom:8px;font-size:13px;">{{ error }}</div>{% endif %}
+  <div class="auth">
+    <h2>🦁 Savana</h2>
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
     {% if login %}
     <form method="POST" action="/login">
-      <input name="username" placeholder="Логин" required style="width:100%;padding:10px;margin:6px 0;border:none;border-radius:6px;background:#17212b;color:#fff;">
-      <input name="password" type="password" placeholder="Пароль" required style="width:100%;padding:10px;margin:6px 0;border:none;border-radius:6px;background:#17212b;color:#fff;">
-      <button type="submit" style="width:100%;padding:10px;margin-top:8px;border:none;border-radius:6px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;">Войти</button>
+      <input name="username" placeholder="Логин" required>
+      <input name="password" type="password" placeholder="Пароль" required>
+      <button type="submit">Войти</button>
     </form>
-    <a href="/register" style="display:block;text-align:center;margin-top:10px;color:var(--accent);text-decoration:none;font-size:13px;">Нет аккаунта? Создать</a>
+    <a href="/register" class="switch">Нет аккаунта? Создать</a>
     {% else %}
     <form method="POST" action="/register">
-      <input name="username" placeholder="Придумай логин" required style="width:100%;padding:10px;margin:6px 0;border:none;border-radius:6px;background:#17212b;color:#fff;">
-      <input name="password" type="password" placeholder="Придумай пароль" required style="width:100%;padding:10px;margin:6px 0;border:none;border-radius:6px;background:#17212b;color:#fff;">
-      <button type="submit" style="width:100%;padding:10px;margin-top:8px;border:none;border-radius:6px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;">Зарегистрироваться</button>
+      <input name="username" placeholder="Придумай логин" required>
+      <input name="password" type="password" placeholder="Придумай пароль" required>
+      <button type="submit">Зарегистрироваться</button>
     </form>
-    <a href="/login" style="display:block;text-align:center;margin-top:10px;color:var(--accent);text-decoration:none;font-size:13px;">Уже есть аккаунт? Войти</a>
+    <a href="/login" class="switch">Уже есть аккаунт? Войти</a>
     {% endif %}
   </div>
   {% else %}
-  <div class="header">
-    <div style="display:flex;align-items:center;">
-      <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
-      <div class="logo">Savana <span>by Корж</span></div>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <a href="https://t.me/bodya20ka" target="_blank" class="tg-link">📢 @bodya20ka</a>
-      <span style="color:var(--muted);font-size:13px;">@{{ user.username }}</span>
-    </div>
+  <div style="text-align: center; margin-top: 50px;">
+    <h1>👋 Привет, {{ user.username }}!</h1>
+    <p>Мессенджер работает!</p>
+    <p>База: /tmp/savana.db</p>
+    <a href="/logout" style="color: #3390ec;">Выйти</a>
   </div>
-  
-  <div class="container">
-    <div class="sidebar">
-      <div class="search-box">
-        <input type="text" id="searchInput" placeholder="🔍 Поиск..." autocomplete="off">
-        <div class="search-results" id="searchResults"></div>
-      </div>
-      <div class="chat-list" id="chatList">
-        {% for ch in chats %}
-        <div class="c-item" data-id="{{ ch.id }}" onclick="loadChat({{ ch.id }})">
-          <div class="s-avatar">{{ (ch.name or '👤')[0] }}</div>
-          <div class="c-info">
-            <div class="c-top">
-              <div class="c-name">{{ ch.name or 'Личный чат' }}</div>
-              <div class="c-time">{{ (ch.last_msg_time or '')[11:16] }}</div>
-            </div>
-            <div class="c-preview">{{ ch.last_msg or 'Нет сообщений' }}</div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-      <div class="create-btn" onclick="showCreateModal()">+ Новый чат / канал</div>
-    </div>
-
-    <div class="chat">
-      <div class="welcome" id="welcomeScreen">
-        <h1>👋 Привет, {{ user.username }}!</h1>
-        <p>Создай канал для публикаций или приватный чат для общения с друзьями.</p>
-        <button class="big-btn" onclick="showCreateModal()">🚀 Создать первый чат</button>
-        <div class="footer-tg">Поддержка: <a href="https://t.me/bodya20ka" target="_blank">@bodya20ka</a></div>
-      </div>
-      
-      <div id="chatUI" style="display:none;flex-direction:column;height:100%;">
-        <div class="chat-head">
-          <h3 id="chTitle">Чат</h3>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div class="status" id="chStatus">офлайн</div>
-            <button class="invite-btn" onclick="showInviteModal()">+ Пригласить</button>
-          </div>
-        </div>
-        <div class="msgs" id="msgs">
-          <div class="empty" id="emptyMsg">
-            <div style="font-size:48px;margin-bottom:10px;">💬</div>
-            <div>Начните общение</div>
-            <div style="font-size:13px;color:var(--muted);margin-top:5px;">Отправьте первое сообщение!</div>
-          </div>
-        </div>
-        <div class="input-area">
-          <button class="emoji-btn" onclick="toggleEmoji()">😊</button>
-          <input id="msgIn" placeholder="Написать сообщение..." autocomplete="off">
-          <button onclick="sendMsg()">➤</button>
-        </div>
-        <div class="emoji-picker" id="emojiPicker">
-          <div class="emoji-item" onclick="addEmoji('😀')">😀</div>
-          <div class="emoji-item" onclick="addEmoji('😂')">😂</div>
-          <div class="emoji-item" onclick="addEmoji('😍')">😍</div>
-          <div class="emoji-item" onclick="addEmoji('🥰')"></div>
-          <div class="emoji-item" onclick="addEmoji('😎')">😎</div>
-          <div class="emoji-item" onclick="addEmoji('🤔')">🤔</div>
-          <div class="emoji-item" onclick="addEmoji('👍')"></div>
-          <div class="emoji-item" onclick="addEmoji('👎')"></div>
-          <div class="emoji-item" onclick="addEmoji('❤️')">❤️</div>
-          <div class="emoji-item" onclick="addEmoji('🔥')">🔥</div>
-          <div class="emoji-item" onclick="addEmoji('🎉')">🎉</div>
-          <div class="emoji-item" onclick="addEmoji('👋')">👋</div>
-          <div class="emoji-item" onclick="addEmoji('🙏')">🙏</div>
-          <div class="emoji-item" onclick="addEmoji('💪')">💪</div>
-          <div class="emoji-item" onclick="addEmoji('💯')">💯</div>
-          <div class="emoji-item" onclick="addEmoji('✨')">✨</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal" id="createModal">
-    <div class="modal-box">
-      <h3>Создать</h3>
-      <select id="chatType">
-        <option value="private">💬 Приватный чат</option>
-        <option value="channel">📢 Канал</option>
-      </select>
-      <input id="chatName" placeholder="Название (для канала)">
-      <input id="chatDesc" placeholder="Описание">
-      <div class="modal-btns">
-        <button class="btn-cancel" onclick="closeModal('createModal')">Отмена</button>
-        <button class="btn-ok" onclick="createChat()">Создать</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal" id="inviteModal">
-    <div class="modal-box">
-      <h3>Пригласить</h3>
-      <input id="inviteSearch" placeholder="Введите никнейм..." oninput="searchForInvite(this.value)">
-      <div id="inviteResults" style="max-height:150px;overflow-y:auto;margin-top:8px;"></div>
-      <div class="modal-btns">
-        <button class="btn-cancel" onclick="closeModal('inviteModal')">Закрыть</button>
-      </div>
-    </div>
-  </div>
-
-  <<script>
-    const socket = io();
-    let currentCid = null;
-    const myUid = {{ user.id | default(0) }};
-    let searchTimeout, inviteTimeout;
-
-    socket.on('msg', d => {
-      if(d.cid !== currentCid) return;
-      document.getElementById('emptyMsg').style.display = 'none';
-      appendMsg(d.user, d.text, d.time, d.uid == myUid);
-      scrollDown();
-      updateChatPreview(d.cid, d.text, d.time);
-    });
-
-    document.getElementById('searchInput').addEventListener('input', function() {
-      const q = this.value.trim();
-      clearTimeout(searchTimeout);
-      if(q.length < 2) { document.getElementById('searchResults').classList.remove('show'); return; }
-      searchTimeout = setTimeout(() => {
-        fetch('/api/search?q=' + encodeURIComponent(q))
-          .then(r => r.json())
-          .then(data => {
-            let html = '';
-            data.users.forEach(u => {
-              html += '<div class="s-item" onclick="startPrivateChat(' + u.id + ')"><div class="s-avatar">' + u.username[0].toUpperCase() + '</div><div><div class="s-name">@' + u.username + '</div></div></div>';
-            });
-            data.chats.forEach(c => {
-              html += '<div class="s-item" onclick="loadChat(' + c.id + ')"><div class="s-avatar">' + c.name[0] + '</div><div><div class="s-name">' + c.name + '</div></div></div>';
-            });
-            const box = document.getElementById('searchResults');
-            box.innerHTML = html || '<div style="padding:10px;color:var(--muted);">Ничего не найдено</div>';
-            box.classList.add('show');
-          });
-      }, 300);
-    });
-
-    document.addEventListener('click', e => { if(!e.target.closest('.search-box')) document.getElementById('searchResults').classList.remove('show'); });
-
-    function startPrivateChat(targetUid) {
-      document.getElementById('searchResults').classList.remove('show');
-      fetch('/api/create_chat', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({type: 'private', target_uid: targetUid})
-      }).then(r => r.json()).then(d => {
-        if(d.ok) loadChat(d.id);
-      });
-    }
-
-    function loadChat(cid) {
-      currentCid = cid;
-      document.querySelectorAll('.c-item').forEach(el => el.classList.remove('active'));
-      const el = document.querySelector('.c-item[data-id="' + cid + '"]');
-      if(el) el.classList.add('active');
-      
-      document.getElementById('welcomeScreen').style.display = 'none';
-      document.getElementById('chatUI').style.display = 'flex';
-      document.getElementById('msgs').innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">Загрузка...</div>';
-
-      fetch('/api/chat/' + cid)
-        .then(r => r.json())
-        .then(data => {
-          const ch = data.chat;
-          document.getElementById('chTitle').textContent = ch.name || 'Личный чат';
-          const isPriv = ch.type === 'private';
-          document.getElementById('chStatus').textContent = isPriv ? 'приватный' : ch.members_count + ' участников';
-          document.querySelector('.invite-btn').style.display = isPriv ? 'block' : 'none';
-          
-          const box = document.getElementById('msgs');
-          if(data.messages.length === 0) {
-            box.innerHTML = '<div class="empty" id="emptyMsg"><div style="font-size:48px;margin-bottom:10px;">💬</div><div>Начните общение</div></div>';
-          } else {
-            box.innerHTML = '';
-            data.messages.forEach(m => appendMsg(m.username, m.content, m.created_at.slice(11,16), m.user_id == myUid));
-          }
-          scrollDown();
-          socket.emit('join', {cid: cid});
-          if(window.innerWidth < 700) document.querySelector('.sidebar').classList.remove('open');
-          document.getElementById('msgIn').focus();
-        });
-    }
-
-    function appendMsg(user, text, time, isMe) {
-      const div = document.createElement('div');
-      div.className = 'msg ' + (isMe ? 'out' : 'in');
-      div.innerHTML = '<div class="u">' + user + '</div><div>' + escape(text) + '</div><div class="t">' + time + '</div>';
-      document.getElementById('msgs').appendChild(div);
-    }
-
-    function sendMsg() {
-      const inp = document.getElementById('msgIn');
-      const txt = inp.value.trim();
-      if(!txt || !currentCid) return;
-      document.getElementById('emptyMsg').style.display = 'none';
-      socket.emit('msg', {cid: currentCid, content: txt});
-      inp.value = ''; inp.focus();
-    }
-
-    function updateChatPreview(cid, text, time) {
-      const el = document.querySelector('.c-item[data-id="' + cid + '"] .c-preview');
-      const tEl = document.querySelector('.c-item[data-id="' + cid + '"] .c-time');
-      if(el) el.textContent = text;
-      if(tEl) tEl.textContent = time;
-    }
-
-    function showCreateModal() { document.getElementById('createModal').classList.add('show'); }
-    function showInviteModal() { document.getElementById('inviteModal').classList.add('show'); document.getElementById('inviteSearch').focus(); }
-    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-    function toggleEmoji() { document.getElementById('emojiPicker').classList.toggle('show'); }
-    function addEmoji(emoji) {
-      const inp = document.getElementById('msgIn');
-      inp.value += emoji;
-      inp.focus();
-      document.getElementById('emojiPicker').classList.remove('show');
-    }
-
-    function createChat() {
-      const type = document.getElementById('chatType').value;
-      const name = document.getElementById('chatName').value.trim();
-      const desc = document.getElementById('chatDesc').value.trim();
-      if(type === 'channel' && !name) return alert('Введите название канала');
-      
-      fetch('/api/create_chat', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({type, name, desc})
-      }).then(r => r.json()).then(d => {
-        if(d.ok) { closeModal('createModal'); location.reload(); }
-      });
-    }
-
-    function searchForInvite(q) {
-      clearTimeout(inviteTimeout);
-      if(q.length < 2) { document.getElementById('inviteResults').innerHTML = ''; return; }
-      inviteTimeout = setTimeout(() => {
-        fetch('/api/search?q=' + encodeURIComponent(q))
-          .then(r => r.json())
-          .then(data => {
-            let html = '';
-            data.users.forEach(u => {
-              html += '<div class="s-item" onclick="inviteUser(' + u.id + ')">@' + u.username + '</div>';
-            });
-            document.getElementById('inviteResults').innerHTML = html || '<div style="padding:8px;color:var(--muted);">Не найден</div>';
-          });
-      }, 300);
-    }
-
-    function inviteUser(uid) {
-      fetch('/api/invite', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({chat_id: currentCid, target_uid: uid})
-      }).then(r => r.json()).then(d => {
-        if(d.ok) { alert('Пользователь добавлен!'); closeModal('inviteModal'); }
-        else alert('Ошибка или уже в чате');
-      });
-    }
-
-    function scrollDown() {
-      const box = document.getElementById('msgs');
-      if(box) box.scrollTop = box.scrollHeight;
-    }
-
-    function escape(str) {
-      const d = document.createElement('div'); d.textContent = str; return d.innerHTML;
-    }
-
-    document.getElementById('msgIn').addEventListener('keypress', e => { if(e.key === 'Enter') sendMsg(); });
-  </script>
+  {% endif %}
+</body>
+</html>
