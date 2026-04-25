@@ -219,10 +219,10 @@
     </div>
   </div>
 
-  <script>
+  <<script>
     const socket = io();
     let currentCid = null;
-    const myUid = {{ user.id }};
+    const myUid = {{ user.id | default(0) }};
     let searchTimeout, inviteTimeout;
 
     socket.on('msg', d => {
@@ -338,4 +338,50 @@
       const type = document.getElementById('chatType').value;
       const name = document.getElementById('chatName').value.trim();
       const desc = document.getElementById('chatDesc').value.trim();
-      if(type === 'channel'
+      if(type === 'channel' && !name) return alert('Введите название канала');
+      
+      fetch('/api/create_chat', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({type, name, desc})
+      }).then(r => r.json()).then(d => {
+        if(d.ok) { closeModal('createModal'); location.reload(); }
+      });
+    }
+
+    function searchForInvite(q) {
+      clearTimeout(inviteTimeout);
+      if(q.length < 2) { document.getElementById('inviteResults').innerHTML = ''; return; }
+      inviteTimeout = setTimeout(() => {
+        fetch('/api/search?q=' + encodeURIComponent(q))
+          .then(r => r.json())
+          .then(data => {
+            let html = '';
+            data.users.forEach(u => {
+              html += '<div class="s-item" onclick="inviteUser(' + u.id + ')">@' + u.username + '</div>';
+            });
+            document.getElementById('inviteResults').innerHTML = html || '<div style="padding:8px;color:var(--muted);">Не найден</div>';
+          });
+      }, 300);
+    }
+
+    function inviteUser(uid) {
+      fetch('/api/invite', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({chat_id: currentCid, target_uid: uid})
+      }).then(r => r.json()).then(d => {
+        if(d.ok) { alert('Пользователь добавлен!'); closeModal('inviteModal'); }
+        else alert('Ошибка или уже в чате');
+      });
+    }
+
+    function scrollDown() {
+      const box = document.getElementById('msgs');
+      if(box) box.scrollTop = box.scrollHeight;
+    }
+
+    function escape(str) {
+      const d = document.createElement('div'); d.textContent = str; return d.innerHTML;
+    }
+
+    document.getElementById('msgIn').addEventListener('keypress', e => { if(e.key === 'Enter') sendMsg(); });
+  </script>
