@@ -17,7 +17,7 @@
     .sidebar { width: 320px; background: var(--sidebar); border-right: 1px solid #0e1621; display: flex; flex-direction: column; }
     .search-box { padding: 10px; border-bottom: 1px solid #0e1621; }
     .search-box input { width: 100%; padding: 9px 12px; border: none; border-radius: 18px; background: #242f3d; color: #fff; outline: none; font-size: 14px; }
-    .search-results { max-height: 180px; overflow-y: auto; background: #242f3d; border-radius: 8px; margin-top: 6px; display: none; }
+    .search-results { max-height: 180px; overflow-y: auto; background: #242f3d; border-radius: 8px; margin-top: 6px; display: none; position: absolute; z-index: 100; width: 300px; }
     .search-results.show { display: block; }
     .s-item { padding: 9px 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #0e1621; }
     .s-item:hover { background: #2b3a4a; }
@@ -34,14 +34,12 @@
     .c-name { font-weight: 600; font-size: 15px; }
     .c-time { font-size: 12px; color: var(--muted); }
     .c-preview { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
-    .c-badge { background: var(--accent); color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 10px; margin-top: 4px; display: inline-block; }
     
     .create-btn { padding: 12px; background: #242f3d; text-align: center; color: var(--accent); font-weight: 700; cursor: pointer; border-top: 1px solid #0e1621; font-size: 14px; }
     .chat { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
     .chat-head { padding: 8px 14px; background: var(--sidebar); border-bottom: 1px solid #0e1621; display: flex; align-items: center; justify-content: space-between; }
     .chat-head h3 { font-size: 15px; display: flex; align-items: center; gap: 6px; }
     .status { font-size: 12px; color: var(--muted); }
-    .status.online { color: var(--green); }
     .invite-btn { background: none; border: 1px solid var(--accent); color: var(--accent); padding: 4px 10px; border-radius: 14px; font-size: 12px; cursor: pointer; }
     
     .msgs { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 5px; }
@@ -50,9 +48,18 @@
     .msg.out { align-self: flex-end; background: var(--msg-out); }
     .msg .u { font-size: 11px; color: var(--accent); font-weight: 600; margin-bottom: 1px; }
     .msg .t { font-size: 10px; color: #6c7880; text-align: right; margin-top: 2px; }
-    .input-area { padding: 8px; background: var(--sidebar); display: flex; gap: 6px; border-top: 1px solid #0e1621; }
+    
+    .input-area { padding: 8px; background: var(--sidebar); display: flex; gap: 6px; border-top: 1px solid #0e1621; align-items: center; }
     .input-area input { flex: 1; padding: 9px 12px; border: none; border-radius: 18px; background: #17212b; color: #fff; outline: none; font-size: 14px; }
     .input-area button { background: var(--accent); color: #fff; border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; font-size: 16px; }
+    .emoji-btn { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 5px; }
+    .emoji-btn:hover { color: var(--accent); }
+    
+    /* Emoji Picker */
+    .emoji-picker { position: absolute; bottom: 60px; right: 10px; background: var(--sidebar); border-radius: 10px; padding: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); display: none; grid-template-columns: repeat(8, 1fr); gap: 5px; z-index: 1000; }
+    .emoji-picker.show { display: grid; }
+    .emoji-item { font-size: 20px; cursor: pointer; padding: 5px; text-align: center; border-radius: 5px; }
+    .emoji-item:hover { background: #2b3a4a; }
     
     .welcome { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
     .welcome h1 { font-size: 24px; margin-bottom: 10px; color: var(--accent); }
@@ -66,7 +73,7 @@
     .modal.show { display: flex; }
     .modal-box { background: var(--sidebar); padding: 20px; border-radius: 12px; width: 90%; max-width: 320px; }
     .modal-box h3 { margin-bottom: 12px; }
-    .modal-box input { width: 100%; padding: 10px; margin: 6px 0; border: none; border-radius: 8px; background: #17212b; color: #fff; }
+    .modal-box input, .modal-box select { width: 100%; padding: 10px; margin: 6px 0; border: none; border-radius: 8px; background: #17212b; color: #fff; }
     .modal-btns { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
     .modal-btns button { padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
     .btn-cancel { background: #242f3d; color: #fff; }
@@ -117,19 +124,19 @@
   <div class="container">
     <div class="sidebar">
       <div class="search-box">
-        <input type="text" id="searchInput" placeholder="🔍 Поиск чатов и людей..." autocomplete="off">
+        <input type="text" id="searchInput" placeholder="🔍 Поиск..." autocomplete="off">
         <div class="search-results" id="searchResults"></div>
       </div>
       <div class="chat-list" id="chatList">
         {% for ch in chats %}
         <div class="c-item" data-id="{{ ch.id }}" onclick="loadChat({{ ch.id }})">
-          <div class="s-avatar">{{ ch.name[0] if ch.name else '👤' }}</div>
+          <div class="s-avatar">{{ (ch.name or '👤')[0] }}</div>
           <div class="c-info">
             <div class="c-top">
               <div class="c-name">{{ ch.name or 'Личный чат' }}</div>
-              <div class="c-time">{{ ch.last_msg_time[11:16] if ch.last_msg_time else '' }}</div>
+              <div class="c-time">{{ (ch.last_msg_time or '')[11:16] }}</div>
             </div>
-            <div class="c-preview">{{ ch.last_msg or 'Начните общение...' }}</div>
+            <div class="c-preview">{{ ch.last_msg or 'Нет сообщений' }}</div>
           </div>
         </div>
         {% endfor %}
@@ -140,8 +147,8 @@
     <div class="chat">
       <div class="welcome" id="welcomeScreen">
         <h1>👋 Привет, {{ user.username }}!</h1>
-        <p>Savana работает. Создай канал для публикаций или приватный чат для общения.</p>
-        <button class="big-btn" onclick="showCreateModal()">🚀 Начать</button>
+        <p>Создай канал для публикаций или приватный чат для общения с друзьями.</p>
+        <button class="big-btn" onclick="showCreateModal()">🚀 Создать первый чат</button>
         <div class="footer-tg">Поддержка: <a href="https://t.me/bodya20ka" target="_blank">@bodya20ka</a></div>
       </div>
       
@@ -153,10 +160,36 @@
             <button class="invite-btn" onclick="showInviteModal()">+ Пригласить</button>
           </div>
         </div>
-        <div class="msgs" id="msgs"></div>
+        <div class="msgs" id="msgs">
+          <div class="empty" id="emptyMsg">
+            <div style="font-size:48px;margin-bottom:10px;">💬</div>
+            <div>Начните общение</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:5px;">Отправьте первое сообщение!</div>
+          </div>
+        </div>
         <div class="input-area">
-          <input id="msgIn" placeholder="Сообщение..." autocomplete="off">
+          <button class="emoji-btn" onclick="toggleEmoji()">😊</button>
+          <input id="msgIn" placeholder="Написать сообщение..." autocomplete="off">
           <button onclick="sendMsg()">➤</button>
+        </div>
+        <!-- Emoji Picker -->
+        <div class="emoji-picker" id="emojiPicker">
+          <div class="emoji-item" onclick="addEmoji('😀')">😀</div>
+          <div class="emoji-item" onclick="addEmoji('😂')">😂</div>
+          <div class="emoji-item" onclick="addEmoji('😍')">😍</div>
+          <div class="emoji-item" onclick="addEmoji('🥰')">🥰</div>
+          <div class="emoji-item" onclick="addEmoji('😎')">😎</div>
+          <div class="emoji-item" onclick="addEmoji('🤔')">🤔</div>
+          <div class="emoji-item" onclick="addEmoji('👍')"></div>
+          <div class="emoji-item" onclick="addEmoji('👎')"></div>
+          <div class="emoji-item" onclick="addEmoji('❤️')">❤️</div>
+          <div class="emoji-item" onclick="addEmoji('🔥')">🔥</div>
+          <div class="emoji-item" onclick="addEmoji('🎉')"></div>
+          <div class="emoji-item" onclick="addEmoji('👋')">👋</div>
+          <div class="emoji-item" onclick="addEmoji('🙏')"></div>
+          <div class="emoji-item" onclick="addEmoji('💪')">💪</div>
+          <div class="emoji-item" onclick="addEmoji('💯')"></div>
+          <div class="emoji-item" onclick="addEmoji('✨')">✨</div>
         </div>
       </div>
     </div>
@@ -166,12 +199,12 @@
   <div class="modal" id="createModal">
     <div class="modal-box">
       <h3>Создать</h3>
-      <select id="chatType" style="width:100%;padding:10px;margin:6px 0;border:none;border-radius:6px;background:#17212b;color:#fff;">
+      <select id="chatType">
         <option value="private">💬 Приватный чат</option>
         <option value="channel">📢 Канал</option>
       </select>
       <input id="chatName" placeholder="Название (для канала)">
-      <input id="chatDesc" placeholder="Описание (необязательно)">
+      <input id="chatDesc" placeholder="Описание">
       <div class="modal-btns">
         <button class="btn-cancel" onclick="closeModal('createModal')">Отмена</button>
         <button class="btn-ok" onclick="createChat()">Создать</button>
@@ -182,7 +215,7 @@
   <!-- Invite Modal -->
   <div class="modal" id="inviteModal">
     <div class="modal-box">
-      <h3>Пригласить пользователя</h3>
+      <h3>Пригласить</h3>
       <input id="inviteSearch" placeholder="Введите никнейм..." oninput="searchForInvite(this.value)">
       <div id="inviteResults" style="max-height:150px;overflow-y:auto;margin-top:8px;"></div>
       <div class="modal-btns">
@@ -199,6 +232,7 @@
 
     socket.on('msg', d => {
       if(d.cid !== currentCid) return;
+      document.getElementById('emptyMsg').style.display = 'none';
       appendMsg(d.user, d.text, d.time, d.uid == myUid);
       scrollDown();
       updateChatPreview(d.cid, d.text, d.time);
@@ -215,16 +249,15 @@
           .then(data => {
             let html = '';
             data.users.forEach(u => {
-              const isOnline = isUserOnline(u.last_seen);
               html += `<div class="s-item" onclick="startPrivateChat(${u.id})">
-                <div class="s-avatar">${u.username[0].toUpperCase()}${isOnline ? '<div class="online-dot"></div>' : ''}</div>
-                <div><div class="s-name">@${u.username}</div><div class="s-meta">${isOnline ? 'в сети' : 'был недавно'}</div></div>
+                <div class="s-avatar">${u.username[0].toUpperCase()}</div>
+                <div><div class="s-name">@${u.username}</div></div>
               </div>`;
             });
             data.chats.forEach(c => {
               html += `<div class="s-item" onclick="loadChat(${c.id})">
                 <div class="s-avatar">${c.name[0]}</div>
-                <div><div class="s-name">${c.name}</div><div class="s-meta">${c.type === 'channel' ? '📢 Канал' : '💬 Чат'}</div></div>
+                <div><div class="s-name">${c.name}</div></div>
               </div>`;
             });
             const box = document.getElementById('searchResults');
@@ -235,11 +268,6 @@
     });
 
     document.addEventListener('click', e => { if(!e.target.closest('.search-box')) document.getElementById('searchResults').classList.remove('show'); });
-
-    function isUserOnline(ts) {
-      if(!ts) return false;
-      return (new Date() - new Date(ts + 'Z')) < 300000; // 5 min
-    }
 
     function startPrivateChat(targetUid) {
       document.getElementById('searchResults').classList.remove('show');
@@ -268,15 +296,19 @@
           document.getElementById('chTitle').textContent = ch.name || 'Личный чат';
           const isPriv = ch.type === 'private';
           document.getElementById('chStatus').textContent = isPriv ? 'приватный' : `${ch.members_count} участников`;
-          document.getElementById('chStatus').className = 'status' + (isPriv ? '' : '');
           document.querySelector('.invite-btn').style.display = isPriv ? 'block' : 'none';
           
           const box = document.getElementById('msgs');
-          box.innerHTML = '';
-          data.messages.forEach(m => appendMsg(m.username, m.content, m.created_at.slice(11,16), m.user_id == myUid));
+          if(data.messages.length === 0) {
+            box.innerHTML = '<div class="empty" id="emptyMsg"><div style="font-size:48px;margin-bottom:10px;">💬</div><div>Начните общение</div></div>';
+          } else {
+            box.innerHTML = '';
+            data.messages.forEach(m => appendMsg(m.username, m.content, m.created_at.slice(11,16), m.user_id == myUid));
+          }
           scrollDown();
           socket.emit('join', {cid: cid});
           if(window.innerWidth < 700) document.querySelector('.sidebar').classList.remove('open');
+          document.getElementById('msgIn').focus();
         });
     }
 
@@ -291,6 +323,7 @@
       const inp = document.getElementById('msgIn');
       const txt = inp.value.trim();
       if(!txt || !currentCid) return;
+      document.getElementById('emptyMsg').style.display = 'none';
       socket.emit('msg', {cid: currentCid, content: txt});
       inp.value = ''; inp.focus();
     }
@@ -305,58 +338,14 @@
     function showCreateModal() { document.getElementById('createModal').classList.add('show'); }
     function showInviteModal() { document.getElementById('inviteModal').classList.add('show'); document.getElementById('inviteSearch').focus(); }
     function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+    function toggleEmoji() { document.getElementById('emojiPicker').classList.toggle('show'); }
+    function addEmoji(emoji) {
+      const inp = document.getElementById('msgIn');
+      inp.value += emoji;
+      inp.focus();
+      document.getElementById('emojiPicker').classList.remove('show');
+    }
 
     function createChat() {
       const type = document.getElementById('chatType').value;
-      const name = document.getElementById('chatName').value.trim();
-      const desc = document.getElementById('chatDesc').value.trim();
-      if(type === 'channel' && !name) return alert('Введите название канала');
-      
-      fetch('/api/create_chat', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({type, name, desc})
-      }).then(r => r.json()).then(d => {
-        if(d.ok) { closeModal('createModal'); location.reload(); }
-      });
-    }
-
-    function searchForInvite(q) {
-      clearTimeout(inviteTimeout);
-      if(q.length < 2) { document.getElementById('inviteResults').innerHTML = ''; return; }
-      inviteTimeout = setTimeout(() => {
-        fetch('/api/search?q=' + encodeURIComponent(q))
-          .then(r => r.json())
-          .then(data => {
-            let html = '';
-            data.users.forEach(u => {
-              html += `<div class="s-item" onclick="inviteUser(${u.id})">@${u.username}</div>`;
-            });
-            document.getElementById('inviteResults').innerHTML = html || '<div style="padding:8px;color:var(--muted);">Не найден</div>';
-          });
-      }, 300);
-    }
-
-    function inviteUser(uid) {
-      fetch('/api/invite', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({chat_id: currentCid, target_uid: uid})
-      }).then(r => r.json()).then(d => {
-        if(d.ok) { alert('Пользователь добавлен!'); closeModal('inviteModal'); }
-        else alert('Ошибка или уже в чате');
-      });
-    }
-
-    function scrollDown() {
-      const box = document.getElementById('msgs');
-      if(box) box.scrollTop = box.scrollHeight;
-    }
-
-    function escape(str) {
-      const d = document.createElement('div'); d.textContent = str; return d.innerHTML;
-    }
-
-    document.getElementById('msgIn')?.addEventListener('keypress', e => { if(e.key === 'Enter') sendMsg(); });
-  </script>
-  {% endif %}
-</body>
-  </html>
+        
