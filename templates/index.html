@@ -55,7 +55,6 @@
     .emoji-btn { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 5px; }
     .emoji-btn:hover { color: var(--accent); }
     
-    /* Emoji Picker */
     .emoji-picker { position: absolute; bottom: 60px; right: 10px; background: var(--sidebar); border-radius: 10px; padding: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); display: none; grid-template-columns: repeat(8, 1fr); gap: 5px; z-index: 1000; }
     .emoji-picker.show { display: grid; }
     .emoji-item { font-size: 20px; cursor: pointer; padding: 5px; text-align: center; border-radius: 5px; }
@@ -68,7 +67,6 @@
     .footer-tg { position: absolute; bottom: 10px; width: 100%; text-align: center; color: var(--muted); font-size: 12px; }
     .footer-tg a { color: var(--accent); text-decoration: none; font-weight: 600; }
     
-    /* Modal */
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
     .modal.show { display: flex; }
     .modal-box { background: var(--sidebar); padding: 20px; border-radius: 12px; width: 90%; max-width: 320px; }
@@ -172,30 +170,28 @@
           <input id="msgIn" placeholder="Написать сообщение..." autocomplete="off">
           <button onclick="sendMsg()">➤</button>
         </div>
-        <!-- Emoji Picker -->
         <div class="emoji-picker" id="emojiPicker">
           <div class="emoji-item" onclick="addEmoji('😀')">😀</div>
           <div class="emoji-item" onclick="addEmoji('😂')">😂</div>
           <div class="emoji-item" onclick="addEmoji('😍')">😍</div>
-          <div class="emoji-item" onclick="addEmoji('🥰')">🥰</div>
+          <div class="emoji-item" onclick="addEmoji('🥰')"></div>
           <div class="emoji-item" onclick="addEmoji('😎')">😎</div>
           <div class="emoji-item" onclick="addEmoji('🤔')">🤔</div>
           <div class="emoji-item" onclick="addEmoji('👍')"></div>
           <div class="emoji-item" onclick="addEmoji('👎')"></div>
           <div class="emoji-item" onclick="addEmoji('❤️')">❤️</div>
           <div class="emoji-item" onclick="addEmoji('🔥')">🔥</div>
-          <div class="emoji-item" onclick="addEmoji('🎉')"></div>
+          <div class="emoji-item" onclick="addEmoji('🎉')">🎉</div>
           <div class="emoji-item" onclick="addEmoji('👋')">👋</div>
-          <div class="emoji-item" onclick="addEmoji('🙏')"></div>
+          <div class="emoji-item" onclick="addEmoji('🙏')">🙏</div>
           <div class="emoji-item" onclick="addEmoji('💪')">💪</div>
-          <div class="emoji-item" onclick="addEmoji('💯')"></div>
+          <div class="emoji-item" onclick="addEmoji('💯')">💯</div>
           <div class="emoji-item" onclick="addEmoji('✨')">✨</div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Create Modal -->
   <div class="modal" id="createModal">
     <div class="modal-box">
       <h3>Создать</h3>
@@ -212,7 +208,6 @@
     </div>
   </div>
 
-  <!-- Invite Modal -->
   <div class="modal" id="inviteModal">
     <div class="modal-box">
       <h3>Пригласить</h3>
@@ -238,7 +233,6 @@
       updateChatPreview(d.cid, d.text, d.time);
     });
 
-    // Search
     document.getElementById('searchInput').addEventListener('input', function() {
       const q = this.value.trim();
       clearTimeout(searchTimeout);
@@ -249,16 +243,10 @@
           .then(data => {
             let html = '';
             data.users.forEach(u => {
-              html += `<div class="s-item" onclick="startPrivateChat(${u.id})">
-                <div class="s-avatar">${u.username[0].toUpperCase()}</div>
-                <div><div class="s-name">@${u.username}</div></div>
-              </div>`;
+              html += '<div class="s-item" onclick="startPrivateChat(' + u.id + ')"><div class="s-avatar">' + u.username[0].toUpperCase() + '</div><div><div class="s-name">@' + u.username + '</div></div></div>';
             });
             data.chats.forEach(c => {
-              html += `<div class="s-item" onclick="loadChat(${c.id})">
-                <div class="s-avatar">${c.name[0]}</div>
-                <div><div class="s-name">${c.name}</div></div>
-              </div>`;
+              html += '<div class="s-item" onclick="loadChat(' + c.id + ')"><div class="s-avatar">' + c.name[0] + '</div><div><div class="s-name">' + c.name + '</div></div></div>';
             });
             const box = document.getElementById('searchResults');
             box.innerHTML = html || '<div style="padding:10px;color:var(--muted);">Ничего не найдено</div>';
@@ -282,7 +270,7 @@
     function loadChat(cid) {
       currentCid = cid;
       document.querySelectorAll('.c-item').forEach(el => el.classList.remove('active'));
-      const el = document.querySelector(`.c-item[data-id="${cid}"]`);
+      const el = document.querySelector('.c-item[data-id="' + cid + '"]');
       if(el) el.classList.add('active');
       
       document.getElementById('welcomeScreen').style.display = 'none';
@@ -295,7 +283,7 @@
           const ch = data.chat;
           document.getElementById('chTitle').textContent = ch.name || 'Личный чат';
           const isPriv = ch.type === 'private';
-          document.getElementById('chStatus').textContent = isPriv ? 'приватный' : `${ch.members_count} участников`;
+          document.getElementById('chStatus').textContent = isPriv ? 'приватный' : ch.members_count + ' участников';
           document.querySelector('.invite-btn').style.display = isPriv ? 'block' : 'none';
           
           const box = document.getElementById('msgs');
@@ -315,7 +303,7 @@
     function appendMsg(user, text, time, isMe) {
       const div = document.createElement('div');
       div.className = 'msg ' + (isMe ? 'out' : 'in');
-      div.innerHTML = `<div class="u">${user}</div><div>${escape(text)}</div><div class="t">${time}</div>`;
+      div.innerHTML = '<div class="u">' + user + '</div><div>' + escape(text) + '</div><div class="t">' + time + '</div>';
       document.getElementById('msgs').appendChild(div);
     }
 
@@ -329,8 +317,8 @@
     }
 
     function updateChatPreview(cid, text, time) {
-      const el = document.querySelector(`.c-item[data-id="${cid}"] .c-preview`);
-      const tEl = document.querySelector(`.c-item[data-id="${cid}"] .c-time`);
+      const el = document.querySelector('.c-item[data-id="' + cid + '"] .c-preview');
+      const tEl = document.querySelector('.c-item[data-id="' + cid + '"] .c-time');
       if(el) el.textContent = text;
       if(tEl) tEl.textContent = time;
     }
@@ -348,4 +336,6 @@
 
     function createChat() {
       const type = document.getElementById('chatType').value;
-        
+      const name = document.getElementById('chatName').value.trim();
+      const desc = document.getElementById('chatDesc').value.trim();
+      if(type === 'channel'
