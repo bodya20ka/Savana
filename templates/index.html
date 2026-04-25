@@ -4,23 +4,32 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Savana | by Корж</title>
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
   <style>
-    body { font-family: system-ui, sans-serif; background: #17212b; color: #fff; margin: 0; padding: 20px; }
-    .auth { max-width: 340px; margin: 50px auto; padding: 20px; background: #1e2c3a; border-radius: 10px; }
-    h2 { text-align: center; color: #3390ec; }
-    input { width: 100%; padding: 10px; margin: 8px 0; border: none; border-radius: 6px; background: #17212b; color: #fff; box-sizing: border-box; }
-    button { width: 100%; padding: 12px; margin-top: 8px; border: none; border-radius: 6px; background: #3390ec; color: #fff; font-weight: 600; cursor: pointer; }
+    :root { --bg: #17212b; --sidebar: #1e2c3a; --accent: #3390ec; --text: #fff; --muted: #8e8e93; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100vh; }
+    .header { background: var(--sidebar); padding: 12px; border-bottom: 1px solid #0e1621; display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-weight: 700; color: var(--accent); }
+    .container { display: flex; height: calc(100vh - 50px); }
+    .sidebar { width: 300px; background: var(--sidebar); border-right: 1px solid #0e1621; padding: 10px; }
+    .chat { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+    .btn { background: var(--accent); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 16px; margin: 10px; }
+    .welcome h1 { margin-bottom: 10px; color: var(--accent); }
+    .welcome p { color: var(--muted); margin-bottom: 20px; }
+    .auth { max-width: 340px; margin: 50px auto; padding: 20px; background: var(--sidebar); border-radius: 10px; }
+    .auth h2 { text-align: center; color: var(--accent); margin-bottom: 15px; }
+    .auth input { width: 100%; padding: 10px; margin: 8px 0; border: none; border-radius: 6px; background: #17212b; color: #fff; }
+    .auth button { width: 100%; padding: 12px; margin-top: 8px; border: none; border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer; }
     .error { color: #e53935; text-align: center; margin-bottom: 8px; }
-    .switch { text-align: center; margin-top: 10px; color: #3390ec; text-decoration: none; display: block; }
+    .switch { text-align: center; margin-top: 10px; color: var(--accent); text-decoration: none; display: block; }
   </style>
 </head>
 <body>
   {% if not user %}
   <div class="auth">
     <h2>🦁 Savana</h2>
-    {% if error %}
-    <div class="error">{{ error }}</div>
-    {% endif %}
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
     {% if login %}
     <form method="POST" action="/login">
       <input name="username" placeholder="Логин" required>
@@ -38,12 +47,40 @@
     {% endif %}
   </div>
   {% else %}
-  <div style="text-align: center; margin-top: 50px;">
-    <h1>👋 Привет, {{ user.username }}!</h1>
-    <p>Мессенджер работает!</p>
-    <p>База: /tmp/savana.db</p>
-    <a href="/logout" style="color: #3390ec;">Выйти</a>
+  <div class="header">
+    <div class="logo">🦁 Savana <span style="color: var(--muted); font-size: 12px;">by Корж</span></div>
+    <div style="color: var(--muted);">@{{ user.username }} | <a href="/logout" style="color: var(--accent);">Выйти</a></div>
+  </div>
+  
+  <div class="container">
+    <div class="sidebar">
+      <h3 style="color: var(--muted); margin-bottom: 10px;">Чаты</h3>
+      {% for ch in chats %}
+      <div style="padding: 10px; background: #242f3d; margin-bottom: 8px; border-radius: 6px; cursor: pointer;">
+        <div style="font-weight: 600;">{{ ch.name or 'Личный чат' }}</div>
+        <div style="font-size: 12px; color: var(--muted);">{{ ch.members_count or 1 }} участников</div>
+      </div>
+      {% endfor %}
+      <button class="btn" onclick="alert('Создание чата будет добавлено в следующем обновлении!')" style="width: 100%; margin-top: 10px;">+ Создать чат</button>
+    </div>
+    
+    <div class="chat">
+      <div class="welcome">
+        <h1>👋 Добро пожаловать, {{ user.username }}!</h1>
+        <p>Savana работает! База данных: /tmp/savana.db</p>
+        <p style="font-size: 14px; max-width: 400px;">
+          Сейчас ты видишь упрощённую версию. В следующем обновлении добавлю:<br>
+          • Создание чатов и каналов<br>
+          • Отправку сообщений<br>
+          • Эмодзи 😊<br>
+          • Поиск пользователей
+        </p>
+        <div style="margin-top: 20px; color: var(--muted); font-size: 12px;">
+          Поддержка: <a href="https://t.me/bodya20ka" style="color: var(--accent);">@bodya20ka</a>
+        </div>
+      </div>
+    </div>
   </div>
   {% endif %}
 </body>
-</html>
+          </html>
