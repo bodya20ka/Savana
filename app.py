@@ -10,14 +10,15 @@ from flask_socketio import SocketIO, emit, join_room
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-2026')
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*", ping_timeout=30, ping_interval=15)
+# Убрали eventlet из socketio, оставим threading для стабильности на бесплатном Render
+socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="*", ping_timeout=30, ping_interval=15)
 
 DB_PATH = os.environ.get('DB_PATH', 'savana.db')
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH, timeout=15)
+    # Увеличил таймаут и убрал WAL режим для стабильности
+    conn = sqlite3.connect(DB_PATH, timeout=20) 
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
     return conn
 
 def init_db():
@@ -54,6 +55,7 @@ def init_db():
     ''')
     conn.commit()
     conn.close()
+    print("✅ База данных инициализирована успешно")
 
 def hash_pwd(p): return hashlib.sha256(p.encode()).hexdigest()
 
@@ -64,7 +66,9 @@ def get_user():
             u = conn.execute('SELECT * FROM users WHERE id=?', (session['uid'],)).fetchone()
             conn.close()
             return u
-        except: return None
+        except Exception as e:
+            print(f"❌ Get User Error: {e}")
+            return None
     return None
 
 def update_seen(uid):
@@ -73,7 +77,8 @@ def update_seen(uid):
         conn.execute('UPDATE users SET last_seen=CURRENT_TIMESTAMP WHERE id=?', (uid,))
         conn.commit()
         conn.close()
-    except: pass
+    except Exception as e:
+        print(f"❌ Update Seen Error: {e}")
 
 @app.route('/')
 def index():
@@ -96,7 +101,7 @@ def index():
         conn.close()
         return render_template('index.html', user=user, chats=chats)
     except Exception as e:
-        print(f"❌ / index error: {e}")
+        print(f"❌ Index Error: {e}")
         return "Ошибка загрузки чатов", 500
 
 @app.route('/login', methods=['GET','POST'])
@@ -113,11 +118,12 @@ def login():
             if row:
                 session['uid'] = row['id']
                 update_seen(row['id'])
+                print(f"✅ User {u} logged in")
                 return redirect('/')
             return render_template('index.html', error='Неверный логин или пароль', login=True, user=None, chats=[])
         except Exception as e:
-            print(f"❌ Login error: {e}")
-            return render_template('index.html', error='Ошибка сервера', login=True, user=None, chats=[])
+            print(f"❌ LOGIN ERROR: {e}") # ВОТ ЗДЕСЬ БУДЕТ ВИДНА ОШИБКА В ЛОГАХ
+            return render_template('index.html', error='Ошибка сервера (см. логи)', login=True, user=None, chats=[])
     return render_template('index.html', login=True, user=None, chats=[])
 
 @app.route('/register', methods=['GET','POST'])
@@ -135,12 +141,13 @@ def register():
             conn.close()
             session['uid'] = row['id']
             update_seen(row['id'])
+            print(f"✅ User {u} registered")
             return redirect('/')
         except sqlite3.IntegrityError:
             return render_template('index.html', error='Это имя уже занято', register=True, user=None, chats=[])
         except Exception as e:
-            print(f"❌ Register error: {e}")
-            return render_template('index.html', error='Ошибка регистрации', register=True, user=None, chats=[])
+            print(f"❌ REGISTER ERROR: {e}") # ВОТ ЗДЕСЬ БУДЕТ ВИДНА ОШИБКА В ЛОГАХ
+            return render_template('index.html', error='Ошибка регистрации (см. логи)', register=True, user=None, chats=[])
     return render_template('index.html', register=True, user=None, chats=[])
 
 @app.route('/logout')
