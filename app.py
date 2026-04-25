@@ -1,6 +1,3 @@
-import eventlet
-eventlet.monkey_patch()
-
 import os
 import sqlite3
 import hashlib
@@ -10,14 +7,14 @@ from flask_socketio import SocketIO, emit, join_room
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-2026')
-# Убрали eventlet из socketio, оставим threading для стабильности на бесплатном Render
+# Используем threading - это стандарт и самый стабильный режим для Render
 socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="*", ping_timeout=30, ping_interval=15)
 
 DB_PATH = os.environ.get('DB_PATH', 'savana.db')
 
 def get_db():
-    # Увеличил таймаут и убрал WAL режим для стабильности
-    conn = sqlite3.connect(DB_PATH, timeout=20) 
+    # Увеличил таймаут для стабильности на хостинге
+    conn = sqlite3.connect(DB_PATH, timeout=20)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -55,7 +52,7 @@ def init_db():
     ''')
     conn.commit()
     conn.close()
-    print("✅ База данных инициализирована успешно")
+    print("✅ База данных готова")
 
 def hash_pwd(p): return hashlib.sha256(p.encode()).hexdigest()
 
@@ -122,7 +119,7 @@ def login():
                 return redirect('/')
             return render_template('index.html', error='Неверный логин или пароль', login=True, user=None, chats=[])
         except Exception as e:
-            print(f"❌ LOGIN ERROR: {e}") # ВОТ ЗДЕСЬ БУДЕТ ВИДНА ОШИБКА В ЛОГАХ
+            print(f"❌ LOGIN ERROR: {e}")
             return render_template('index.html', error='Ошибка сервера (см. логи)', login=True, user=None, chats=[])
     return render_template('index.html', login=True, user=None, chats=[])
 
@@ -146,7 +143,7 @@ def register():
         except sqlite3.IntegrityError:
             return render_template('index.html', error='Это имя уже занято', register=True, user=None, chats=[])
         except Exception as e:
-            print(f"❌ REGISTER ERROR: {e}") # ВОТ ЗДЕСЬ БУДЕТ ВИДНА ОШИБКА В ЛОГАХ
+            print(f"❌ REGISTER ERROR: {e}")
             return render_template('index.html', error='Ошибка регистрации (см. логи)', register=True, user=None, chats=[])
     return render_template('index.html', register=True, user=None, chats=[])
 
