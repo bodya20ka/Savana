@@ -1,13 +1,12 @@
+import eventlet
+eventlet.monkey_patch()
+
 import os
 import sqlite3
 import hashlib
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, session, jsonify
 from flask_socketio import SocketIO, emit, join_room
-
-app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-2026')
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*", ping_timeout=30, ping_interval=15)
 
 DB_PATH = os.environ.get('DB_PATH', 'savana.db')
 
