@@ -7,18 +7,22 @@ from flask_socketio import SocketIO, emit, join_room
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-2026')
-# Используем threading - это стандарт и самый стабильный режим для Render
 socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="*", ping_timeout=30, ping_interval=15)
 
-DB_PATH = os.environ.get('DB_PATH', 'savana.db')
+# Используем папку /tmp, которая точно доступна для записи на Render
+DB_PATH = '/tmp/savana.db'
 
 def get_db():
-    # Увеличил таймаут для стабильности на хостинге
-    conn = sqlite3.connect(DB_PATH, timeout=20)
-    conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=20)
+        conn.row_factory = sqlite3.Row
+        return conn
+    except Exception as e:
+        print(f"🔴 FATAL DB CONNECT ERROR: {e}")
+        raise
 
 def init_db():
+    print("🟡 Инициализация БД по пути:", DB_PATH)
     conn = get_db()
     conn.executescript('''
         CREATE TABLE IF NOT EXISTS users (
@@ -52,7 +56,11 @@ def init_db():
     ''')
     conn.commit()
     conn.close()
-    print("✅ База данных готова")
+    print("✅ Таблицы базы данных готовы!")
+
+# 🔥 ВАЖНО: Вызываем init_db() здесь, в основном теле скрипта, а не в if __name__
+# Это гарантирует, что база создастся при запуске через Gunicorn
+init_db()
 
 def hash_pwd(p): return hashlib.sha256(p.encode()).hexdigest()
 
@@ -74,8 +82,7 @@ def update_seen(uid):
         conn.execute('UPDATE users SET last_seen=CURRENT_TIMESTAMP WHERE id=?', (uid,))
         conn.commit()
         conn.close()
-    except Exception as e:
-        print(f"❌ Update Seen Error: {e}")
+    except: pass
 
 @app.route('/')
 def index():
@@ -99,7 +106,7 @@ def index():
         return render_template('index.html', user=user, chats=chats)
     except Exception as e:
         print(f"❌ Index Error: {e}")
-        return "Ошибка загрузки чатов", 500
+        return f"Ошибка загрузки чатов. Проверь логи.", 500
 
 @app.route('/login', methods=['GET','POST'])
 def login():
@@ -120,7 +127,7 @@ def login():
             return render_template('index.html', error='Неверный логин или пароль', login=True, user=None, chats=[])
         except Exception as e:
             print(f"❌ LOGIN ERROR: {e}")
-            return render_template('index.html', error='Ошибка сервера (см. логи)', login=True, user=None, chats=[])
+            return render_template('index.html', error='Ошибка сервера', login=True, user=None, chats=[])
     return render_template('index.html', login=True, user=None, chats=[])
 
 @app.route('/register', methods=['GET','POST'])
@@ -144,7 +151,7 @@ def register():
             return render_template('index.html', error='Это имя уже занято', register=True, user=None, chats=[])
         except Exception as e:
             print(f"❌ REGISTER ERROR: {e}")
-            return render_template('index.html', error='Ошибка регистрации (см. логи)', register=True, user=None, chats=[])
+            return render_template('index.html', error='Ошибка регистрации', register=True, user=None, chats=[])
     return render_template('index.html', register=True, user=None, chats=[])
 
 @app.route('/logout')
@@ -256,5 +263,4 @@ def on_msg(data):
     emit('msg', {'cid': cid, 'uid': user['id'], 'user': user['username'], 'text': content, 'time': datetime.now().strftime('%H:%M')}, room=f'chat_{cid}', broadcast=True)
 
 if __name__ == '__main__':
-    init_db()
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
