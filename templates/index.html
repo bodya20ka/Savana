@@ -289,7 +289,10 @@
   const myName = '{{ user.username }}';
   let currentCid = null, replyToId = null, editMsgId = null, ctxMsgId = null;
 
-  const socket = io({ transports: ['websocket', 'polling'] });
+  const socket = io({ 
+    transports: ['polling'],
+    forceNew: true
+});
   
   socket.on('msg', data => {
     if (data.cid != currentCid) return;
