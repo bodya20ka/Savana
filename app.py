@@ -14,37 +14,18 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'savana-secret-2026')
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*", ping_timeout=30, ping_interval=15)
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
-print(f"DATABASE_URL: {'SET' if DATABASE_URL else 'NOT SET!!!'}", file=sys.stderr)
-
-pool = None
-if DATABASE_URL:
-    try:
-        pool = SimpleConnectionPool(1, 10, DATABASE_URL)
-        print("Connection pool created", file=sys.stderr)
-    except Exception as e:
-        print(f"Pool creation error: {e}", file=sys.stderr)
 
 def get_db():
-    if not pool:
-        raise Exception("Database not configured")
     for i in range(3):
         try:
-            conn = pool.getconn()
+            conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
             return conn
         except Exception as e:
             print(f"DB connection attempt {i+1} failed: {e}", file=sys.stderr)
             time.sleep(2)
     raise Exception("Cannot connect to database")
 
-def release_db(conn):
-    if pool and conn:
-        try:
-            pool.putconn(conn)
-        except:
-            pass
-
 def init_db():
-    print("Initializing database...", file=sys.stderr)
     conn = get_db()
     cur = conn.cursor()
     cur.execute('''CREATE TABLE IF NOT EXISTS users (
@@ -65,14 +46,12 @@ def init_db():
         emoji TEXT NOT NULL, UNIQUE(msg_id, user_id))''')
     conn.commit()
     cur.close()
-    release_db(conn)
-    print("Database initialized!", file=sys.stderr)
+    conn.close()
 
-if DATABASE_URL and pool:
-    try:
-        init_db()
-    except Exception as e:
-        print(f"DB init error: {e}", file=sys.stderr)
+try:
+    init_db()
+except Exception as e:
+    print(f"DB init error: {e}", file=sys.stderr)
 
 def hash_pwd(p):
     return hashlib.sha256(p.encode()).hexdigest()
@@ -83,21 +62,18 @@ def get_user():
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute('SELECT id, username, bio, last_seen FROM users WHERE id=%s', (session['uid'],))
+        cur.execute('SELECT * FROM users WHERE id=%s', (session['uid'],))
         u = cur.fetchone()
         cur.close()
-        release_db(conn)
+        conn.close()
         return u
-    except Exception as e:
-        print(f"get_user error: {e}", file=sys.stderr)
+    except:
         return None
 
 # ── ROUTES ────────────────────────────────────────────────
 
 @app.route('/')
 def index():
-    if not pool:
-        return "<h1>Savana</h1><p>База данных не подключена.</p>", 500
     user = get_user()
     if not user:
         return redirect('/login')
@@ -115,12 +91,10 @@ def index():
         ''', (user['id'],))
         chats = cur.fetchall()
         cur.close()
-        release_db(conn)
+        conn.close()
         return render_template('index.html', user=user, chats=chats)
     except Exception as e:
-        print(f"Index error: {e}", file=sys.stderr)
         import traceback
-        traceback.print_exc(file=sys.stderr)
         return f"<h1>Ошибка</h1><pre>{traceback.format_exc()}</pre>", 500
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -133,10 +107,10 @@ def login():
         try:
             conn = get_db()
             cur = conn.cursor()
-            cur.execute('SELECT id, username FROM users WHERE username=%s AND password=%s', (u, hash_pwd(p)))
+            cur.execute('SELECT * FROM users WHERE username=%s AND password=%s', (u, hash_pwd(p)))
             row = cur.fetchone()
             cur.close()
-            release_db(conn)
+            conn.close()
             if row:
                 session['uid'] = row['id']
                 return redirect('/')
@@ -159,7 +133,7 @@ def register():
             row = cur.fetchone()
             conn.commit()
             cur.close()
-            release_db(conn)
+            conn.close()
             session['uid'] = row['id']
             return redirect('/')
         except psycopg2.errors.UniqueViolation:
@@ -192,7 +166,7 @@ def api_search():
         cur.execute("SELECT id, name, type FROM chats WHERE type != 'private' AND name ILIKE %s LIMIT 5", (f'%{q}%',))
         chats = [dict(r) for r in cur.fetchall()]
         cur.close()
-        release_db(conn)
+        conn.close()
         return jsonify({'users': users, 'chats': chats})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -208,7 +182,7 @@ def api_chat(cid):
         cur.execute('SELECT 1 FROM chat_members WHERE chat_id=%s AND user_id=%s', (cid, user['id']))
         if not cur.fetchone():
             cur.close()
-            release_db(conn)
+            conn.close()
             return jsonify({'error': 'access'}), 403
         cur.execute('SELECT * FROM chats WHERE id=%s', (cid,))
         chat = dict(cur.fetchone())
@@ -235,7 +209,7 @@ def api_chat(cid):
                     'mine': str(user['id']) in (r['user_ids'] or '').split(',')
                 })
         cur.close()
-        release_db(conn)
+        conn.close()
         msgs_list = []
         for m in reversed(msgs):
             md = dict(m)
@@ -268,7 +242,7 @@ def api_create_chat():
                 (user['id'], target_uid))
             existing = cur.fetchone()
             if existing:
-                cur.close(); release_db(conn)
+                cur.close(); conn.close()
                 return jsonify({'ok': True, 'id': existing['id']})
             cur.execute('INSERT INTO chats (type, name, description, created_by) VALUES (%s,%s,%s,%s) RETURNING id',
                         ('private', None, None, user['id']))
@@ -276,7 +250,7 @@ def api_create_chat():
             cur.execute('INSERT INTO chat_members (chat_id, user_id, role) VALUES (%s,%s,%s)', (cid, user['id'], 'owner'))
             cur.execute('INSERT INTO chat_members (chat_id, user_id, role) VALUES (%s,%s,%s)', (cid, target_uid, 'member'))
             conn.commit()
-            cur.close(); release_db(conn)
+            cur.close(); conn.close()
             return jsonify({'ok': True, 'id': cid})
         else:
             if not name:
@@ -286,7 +260,7 @@ def api_create_chat():
             cid = cur.fetchone()['id']
             cur.execute('INSERT INTO chat_members (chat_id, user_id, role) VALUES (%s,%s,%s)', (cid, user['id'], 'owner'))
             conn.commit()
-            cur.close(); release_db(conn)
+            cur.close(); conn.close()
             return jsonify({'ok': True, 'id': cid})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -304,7 +278,7 @@ def api_invite():
         cur = conn.cursor()
         cur.execute('INSERT INTO chat_members (chat_id, user_id) VALUES (%s,%s)', (cid, target_uid))
         conn.commit()
-        cur.close(); release_db(conn)
+        cur.close(); conn.close()
         return jsonify({'ok': True})
     except psycopg2.errors.UniqueViolation:
         return jsonify({'error': 'exists'}), 400
@@ -325,11 +299,11 @@ def api_edit_msg():
         cur.execute('SELECT * FROM messages WHERE id=%s AND user_id=%s', (mid, user['id']))
         msg = cur.fetchone()
         if not msg:
-            cur.close(); release_db(conn)
+            cur.close(); conn.close()
             return jsonify({'error': 'not found'}), 404
         cur.execute('UPDATE messages SET content=%s, edited=1 WHERE id=%s', (content, mid))
         conn.commit()
-        cur.close(); release_db(conn)
+        cur.close(); conn.close()
         socketio.emit('msg_edited', {'id': mid, 'content': content, 'cid': msg['chat_id']}, room=f'chat_{msg["chat_id"]}')
         return jsonify({'ok': True})
     except Exception as e:
@@ -348,11 +322,11 @@ def api_delete_msg():
         cur.execute('SELECT * FROM messages WHERE id=%s AND user_id=%s', (mid, user['id']))
         msg = cur.fetchone()
         if not msg:
-            cur.close(); release_db(conn)
+            cur.close(); conn.close()
             return jsonify({'error': 'not found'}), 404
         cur.execute("UPDATE messages SET deleted=1, content='Сообщение удалено' WHERE id=%s", (mid,))
         conn.commit()
-        cur.close(); release_db(conn)
+        cur.close(); conn.close()
         socketio.emit('msg_deleted', {'id': mid, 'cid': msg['chat_id']}, room=f'chat_{msg["chat_id"]}')
         return jsonify({'ok': True})
     except Exception as e:
@@ -372,7 +346,7 @@ def api_react():
         cur.execute('SELECT chat_id FROM messages WHERE id=%s', (mid,))
         msg = cur.fetchone()
         if not msg:
-            cur.close(); release_db(conn)
+            cur.close(); conn.close()
             return jsonify({'error': 'not found'}), 404
         cur.execute('SELECT * FROM reactions WHERE msg_id=%s AND user_id=%s', (mid, user['id']))
         existing = cur.fetchone()
@@ -387,7 +361,7 @@ def api_react():
         cur.execute('''SELECT emoji, COUNT(*) as cnt, STRING_AGG(user_id::text, ',') as user_ids
             FROM reactions WHERE msg_id=%s GROUP BY emoji''', (mid,))
         reacts = cur.fetchall()
-        cur.close(); release_db(conn)
+        cur.close(); conn.close()
         reactions = [{'emoji': r['emoji'], 'cnt': r['cnt'], 'mine': str(user['id']) in (r['user_ids'] or '').split(',')} for r in reacts]
         socketio.emit('reactions_updated', {'id': mid, 'cid': msg['chat_id'], 'reactions': reactions}, room=f'chat_{msg["chat_id"]}')
         return jsonify({'ok': True})
@@ -406,7 +380,7 @@ def api_profile():
         cur = conn.cursor()
         cur.execute('UPDATE users SET bio=%s WHERE id=%s', (bio, user['id']))
         conn.commit()
-        cur.close(); release_db(conn)
+        cur.close(); conn.close()
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -438,7 +412,7 @@ def on_msg(data):
         cur = conn.cursor()
         cur.execute('SELECT 1 FROM chat_members WHERE chat_id=%s AND user_id=%s', (cid, user['id']))
         if not cur.fetchone():
-            cur.close(); release_db(conn)
+            cur.close(); conn.close()
             return
         cur.execute('INSERT INTO messages (chat_id, user_id, content, reply_to) VALUES (%s,%s,%s,%s) RETURNING id',
                     (cid, user['id'], content, reply_to))
@@ -451,7 +425,7 @@ def on_msg(data):
             if rm:
                 reply_content = rm['content']; reply_user = rm['username']
         conn.commit()
-        cur.close(); release_db(conn)
+        cur.close(); conn.close()
         emit('msg', {
             'id': mid, 'cid': cid, 'uid': user['id'], 'user': user['username'],
             'text': content, 'time': datetime.now().strftime('%H:%M'),
