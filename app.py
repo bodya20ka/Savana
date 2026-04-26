@@ -11,7 +11,6 @@ from psycopg2.extras import RealDictCursor
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'savana-secret-2026')
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*", ping_timeout=30, ping_interval=15)
-
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
 def get_db():
@@ -70,7 +69,6 @@ def get_user():
         return None
 
 # ── ROUTES ────────────────────────────────────────────────
-
 @app.route('/')
 def index():
     user = get_user()
@@ -81,22 +79,19 @@ def index():
         cur = conn.cursor()
         cur.execute('''
             SELECT c.id, c.type, c.name, c.description, c.created_at,
-                   (SELECT COUNT(*) FROM chat_members WHERE chat_id=c.id) as members_count,
-                   (SELECT content FROM messages WHERE chat_id=c.id AND deleted=0 ORDER BY id DESC LIMIT 1) as last_msg,
-                   (SELECT u.username FROM messages m JOIN users u ON m.user_id=u.id WHERE m.chat_id=c.id AND m.deleted=0 ORDER BY m.id DESC LIMIT 1) as last_msg_user,
-                   (SELECT created_at FROM messages WHERE chat_id=c.id AND deleted=0 ORDER BY id DESC LIMIT 1) as last_msg_time
+            (SELECT COUNT(*) FROM chat_members WHERE chat_id=c.id) as members_count,
+            (SELECT content FROM messages WHERE chat_id=c.id AND deleted=0 ORDER BY id DESC LIMIT 1) as last_msg,
+            (SELECT u.username FROM messages m JOIN users u ON m.user_id=u.id WHERE m.chat_id=c.id AND m.deleted=0 ORDER BY m.id DESC LIMIT 1) as last_msg_user,
+            (SELECT created_at FROM messages WHERE chat_id=c.id AND deleted=0 ORDER BY id DESC LIMIT 1) as last_msg_time
             FROM chats c JOIN chat_members cm ON c.id=cm.chat_id
             WHERE cm.user_id=%s GROUP BY c.id ORDER BY last_msg_time DESC NULLS LAST, c.id DESC
         ''', (user['id'],))
         chats = cur.fetchall()
-        cur.close()
-        conn.close()
-        
-        # Конвертируем datetime в строки для шаблона
         for ch in chats:
             if ch.get('last_msg_time') and not isinstance(ch['last_msg_time'], str):
                 ch['last_msg_time'] = ch['last_msg_time'].strftime('%Y-%m-%d %H:%M:%S')
-        
+        cur.close()
+        conn.close()
         return render_template('index.html', user=user, chats=chats)
     except Exception as e:
         import traceback
@@ -153,48 +148,66 @@ def logout():
     return redirect('/login')
 
 # ── API ────────────────────────────────────────────────────
-
 @app.route('/api/search')
 def api_search():
     user = get_user()
-    if not user:
-        return jsonify({'error': 'auth'}), 401
+    if not user: return jsonify({'error': 'auth'}), 401
     q = request.args.get('q', '').strip()
-    if not q:
-        return jsonify({'users': [], 'chats': []})
+    if not q: return jsonify({'users': [], 'chats': []})
     try:
         conn = get_db()
         cur = conn.cursor()
-        cur.execute('SELECT id, username, last_seen FROM users WHERE username ILIKE %s AND id!=%s LIMIT 10',
-                    (f'%{q}%', user['id']))
+        cur.execute('SELECT id, username, last_seen FROM users WHERE username ILIKE %s AND id!=%s LIMIT 10', (f'%{q}%', user['id']))
         users = [dict(r) for r in cur.fetchall()]
         cur.execute("SELECT id, name, type FROM chats WHERE type != 'private' AND name ILIKE %s LIMIT 5", (f'%{q}%',))
         chats = [dict(r) for r in cur.fetchall()]
-        cur.close()
-        conn.close()
+        cur.close(); conn.close()
         return jsonify({'users': users, 'chats': chats})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/chat/<int:cid>')
+@app.route('/api/chats')
+def api_chats():
+    user = get_user()
+    if not user: return jsonify({'error': 'auth'}), 401
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT c.id, c.type, c.name, c.description, c.created_at,
+            (SELECT content FROM messages WHERE chat_id=c.id AND deleted=0 ORDER BY id DESC LIMIT 1) as last_msg,
+            (SELECT u.username FROM messages m JOIN users u ON m.user_id=u.id WHERE m.chat_id=c.id AND m.deleted=0 ORDER BY m.id DESC LIMIT 1) as last_msg_user,
+            (SELECT created_at FROM messages WHERE chat_id=c.id AND deleted=0 ORDER BY id DESC LIMIT 1) as last_msg_time
+            FROM chats c JOIN chat_members cm ON c.id=cm.chat_id
+            WHERE cm.user_id=%s ORDER BY last_msg_time DESC NULLS LAST, c.id DESC
+        ''', (user['id'],))
+        chats = cur.fetchall()
+        for ch in chats:
+            if ch.get('last_msg_time') and not isinstance(ch['last_msg_time'], str):
+                ch['last_msg_time'] = ch['last_msg_time'].strftime('%Y-%m-%d %H:%M:%S')
+        cur.close(); conn.close()
+        return jsonify({'chats': chats})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/chat/<int:cid>')  # Исправлен синтаксис маршрута
 def api_chat(cid):
     user = get_user()
-    if not user:
-        return jsonify({'error': 'auth'}), 401
+    if not user: return jsonify({'error': 'auth'}), 401
     try:
         conn = get_db()
         cur = conn.cursor()
         cur.execute('SELECT 1 FROM chat_members WHERE chat_id=%s AND user_id=%s', (cid, user['id']))
-        if not cur.fetchone():
-            cur.close()
-            conn.close()
-            return jsonify({'error': 'access'}), 403
+        if not cur.fetchone(): return jsonify({'error': 'access'}), 403
+        
         cur.execute('SELECT * FROM chats WHERE id=%s', (cid,))
         chat = dict(cur.fetchone())
-        cur.execute('''SELECT u.id, u.username, u.last_seen, cm.role 
-            FROM users u JOIN chat_members cm ON u.id=cm.user_id 
+        
+        cur.execute('''SELECT u.id, u.username, u.last_seen, cm.role
+            FROM users u JOIN chat_members cm ON u.id=cm.user_id
             WHERE cm.chat_id=%s ORDER BY cm.role DESC, u.username''', (cid,))
         members = [dict(r) for r in cur.fetchall()]
+        
         cur.execute('''SELECT m.*, u.username,
             (SELECT content FROM messages WHERE id=m.reply_to) as reply_content,
             (SELECT u2.username FROM messages m2 JOIN users u2 ON m2.user_id=u2.id WHERE m2.id=m.reply_to) as reply_user
@@ -202,26 +215,26 @@ def api_chat(cid):
             WHERE m.chat_id=%s ORDER BY m.id DESC LIMIT 100''', (cid,))
         msgs = cur.fetchall()
         msg_ids = [m['id'] for m in msgs]
+        
         reactions = {}
         if msg_ids:
             cur.execute('''SELECT msg_id, emoji, COUNT(*) as cnt, STRING_AGG(user_id::text, ',') as user_ids
                 FROM reactions WHERE msg_id = ANY(%s) GROUP BY msg_id, emoji''', (msg_ids,))
             for r in cur.fetchall():
-                if r['msg_id'] not in reactions:
-                    reactions[r['msg_id']] = []
+                if r['msg_id'] not in reactions: reactions[r['msg_id']] = []
                 reactions[r['msg_id']].append({
                     'emoji': r['emoji'], 'cnt': r['cnt'],
                     'mine': str(user['id']) in (r['user_ids'] or '').split(',')
                 })
-        cur.close()
-        conn.close()
+                
         msgs_list = []
         for m in reversed(msgs):
             md = dict(m)
             md['reactions'] = reactions.get(m['id'], [])
-            if md.get('created_at'):
-                md['created_at'] = str(md['created_at'])
+            if md.get('created_at'): md['created_at'] = str(md['created_at'])
             msgs_list.append(md)
+            
+        cur.close(); conn.close()
         return jsonify({'chat': chat, 'members': members, 'messages': msgs_list, 'my_uid': user['id']})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -229,8 +242,7 @@ def api_chat(cid):
 @app.route('/api/create_chat', methods=['POST'])
 def api_create_chat():
     user = get_user()
-    if not user:
-        return jsonify({'error': 'auth'}), 401
+    if not user: return jsonify({'error': 'auth'}), 401
     data = request.json or {}
     ctype = data.get('type', 'private')
     name = data.get('name', '').strip()
@@ -243,47 +255,33 @@ def api_create_chat():
             cur.execute('''SELECT c.id FROM chats c
                 JOIN chat_members m1 ON c.id=m1.chat_id AND m1.user_id=%s
                 JOIN chat_members m2 ON c.id=m2.chat_id AND m2.user_id=%s
-                WHERE c.type='private' GROUP BY c.id HAVING COUNT(*)=2''',
-                (user['id'], target_uid))
+                WHERE c.type='private' GROUP BY c.id HAVING COUNT(*)=2''', (user['id'], target_uid))
             existing = cur.fetchone()
-            if existing:
-                cur.close(); conn.close()
-                return jsonify({'ok': True, 'id': existing['id']})
-            cur.execute('INSERT INTO chats (type, name, description, created_by) VALUES (%s,%s,%s,%s) RETURNING id',
-                        ('private', None, None, user['id']))
+            if existing: return jsonify({'ok': True, 'id': existing['id']})
+            cur.execute('INSERT INTO chats (type, name, description, created_by) VALUES (%s,%s,%s,%s) RETURNING id', ('private', None, None, user['id']))
             cid = cur.fetchone()['id']
             cur.execute('INSERT INTO chat_members (chat_id, user_id, role) VALUES (%s,%s,%s)', (cid, user['id'], 'owner'))
             cur.execute('INSERT INTO chat_members (chat_id, user_id, role) VALUES (%s,%s,%s)', (cid, target_uid, 'member'))
-            conn.commit()
-            cur.close(); conn.close()
-            return jsonify({'ok': True, 'id': cid})
         else:
-            if not name:
-                return jsonify({'error': 'name'}), 400
-            cur.execute('INSERT INTO chats (type, name, description, created_by) VALUES (%s,%s,%s,%s) RETURNING id',
-                        (ctype, name, desc, user['id']))
+            if not name: return jsonify({'error': 'name'}), 400
+            cur.execute('INSERT INTO chats (type, name, description, created_by) VALUES (%s,%s,%s,%s) RETURNING id', (ctype, name, desc, user['id']))
             cid = cur.fetchone()['id']
             cur.execute('INSERT INTO chat_members (chat_id, user_id, role) VALUES (%s,%s,%s)', (cid, user['id'], 'owner'))
-            conn.commit()
-            cur.close(); conn.close()
-            return jsonify({'ok': True, 'id': cid})
+        conn.commit(); cur.close(); conn.close()
+        return jsonify({'ok': True, 'id': cid})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/invite', methods=['POST'])
 def api_invite():
     user = get_user()
-    if not user:
-        return jsonify({'error': 'auth'}), 401
+    if not user: return jsonify({'error': 'auth'}), 401
     data = request.json or {}
-    cid = data.get('chat_id')
-    target_uid = data.get('target_uid')
+    cid = data.get('chat_id'); target_uid = data.get('target_uid')
     try:
-        conn = get_db()
-        cur = conn.cursor()
+        conn = get_db(); cur = conn.cursor()
         cur.execute('INSERT INTO chat_members (chat_id, user_id) VALUES (%s,%s)', (cid, target_uid))
-        conn.commit()
-        cur.close(); conn.close()
+        conn.commit(); cur.close(); conn.close()
         return jsonify({'ok': True})
     except psycopg2.errors.UniqueViolation:
         return jsonify({'error': 'exists'}), 400
@@ -293,22 +291,15 @@ def api_invite():
 @app.route('/api/msg/edit', methods=['POST'])
 def api_edit_msg():
     user = get_user()
-    if not user:
-        return jsonify({'error': 'auth'}), 401
-    data = request.json or {}
-    mid = data.get('id')
-    content = data.get('content', '').strip()
+    if not user: return jsonify({'error': 'auth'}), 401
+    data = request.json or {}; mid = data.get('id'); content = data.get('content', '').strip()
     try:
-        conn = get_db()
-        cur = conn.cursor()
+        conn = get_db(); cur = conn.cursor()
         cur.execute('SELECT * FROM messages WHERE id=%s AND user_id=%s', (mid, user['id']))
         msg = cur.fetchone()
-        if not msg:
-            cur.close(); conn.close()
-            return jsonify({'error': 'not found'}), 404
+        if not msg: return jsonify({'error': 'not found'}), 404
         cur.execute('UPDATE messages SET content=%s, edited=1 WHERE id=%s', (content, mid))
-        conn.commit()
-        cur.close(); conn.close()
+        conn.commit(); cur.close(); conn.close()
         socketio.emit('msg_edited', {'id': mid, 'content': content, 'cid': msg['chat_id']}, room=f'chat_{msg["chat_id"]}')
         return jsonify({'ok': True})
     except Exception as e:
@@ -317,21 +308,15 @@ def api_edit_msg():
 @app.route('/api/msg/delete', methods=['POST'])
 def api_delete_msg():
     user = get_user()
-    if not user:
-        return jsonify({'error': 'auth'}), 401
-    data = request.json or {}
-    mid = data.get('id')
+    if not user: return jsonify({'error': 'auth'}), 401
+    data = request.json or {}; mid = data.get('id')
     try:
-        conn = get_db()
-        cur = conn.cursor()
+        conn = get_db(); cur = conn.cursor()
         cur.execute('SELECT * FROM messages WHERE id=%s AND user_id=%s', (mid, user['id']))
         msg = cur.fetchone()
-        if not msg:
-            cur.close(); conn.close()
-            return jsonify({'error': 'not found'}), 404
+        if not msg: return jsonify({'error': 'not found'}), 404
         cur.execute("UPDATE messages SET deleted=1, content='Сообщение удалено' WHERE id=%s", (mid,))
-        conn.commit()
-        cur.close(); conn.close()
+        conn.commit(); cur.close(); conn.close()
         socketio.emit('msg_deleted', {'id': mid, 'cid': msg['chat_id']}, room=f'chat_{msg["chat_id"]}')
         return jsonify({'ok': True})
     except Exception as e:
@@ -340,19 +325,13 @@ def api_delete_msg():
 @app.route('/api/msg/react', methods=['POST'])
 def api_react():
     user = get_user()
-    if not user:
-        return jsonify({'error': 'auth'}), 401
-    data = request.json or {}
-    mid = data.get('id')
-    emoji = data.get('emoji', '')
+    if not user: return jsonify({'error': 'auth'}), 401
+    data = request.json or {}; mid = data.get('id'); emoji = data.get('emoji', '')
     try:
-        conn = get_db()
-        cur = conn.cursor()
+        conn = get_db(); cur = conn.cursor()
         cur.execute('SELECT chat_id FROM messages WHERE id=%s', (mid,))
         msg = cur.fetchone()
-        if not msg:
-            cur.close(); conn.close()
-            return jsonify({'error': 'not found'}), 404
+        if not msg: return jsonify({'error': 'not found'}), 404
         cur.execute('SELECT * FROM reactions WHERE msg_id=%s AND user_id=%s', (mid, user['id']))
         existing = cur.fetchone()
         if existing:
@@ -365,96 +344,68 @@ def api_react():
         conn.commit()
         cur.execute('''SELECT emoji, COUNT(*) as cnt, STRING_AGG(user_id::text, ',') as user_ids
             FROM reactions WHERE msg_id=%s GROUP BY emoji''', (mid,))
-        reacts = cur.fetchall()
-        cur.close(); conn.close()
+        reacts = cur.fetchall(); cur.close(); conn.close()
         reactions = [{'emoji': r['emoji'], 'cnt': r['cnt'], 'mine': str(user['id']) in (r['user_ids'] or '').split(',')} for r in reacts]
         socketio.emit('reactions_updated', {'id': mid, 'cid': msg['chat_id'], 'reactions': reactions}, room=f'chat_{msg["chat_id"]}')
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/profile', methods=['POST'])
+@app.route('/api/profile', methods=['GET', 'POST'])
 def api_profile():
     user = get_user()
-    if not user:
-        return jsonify({'error': 'auth'}), 401
+    if not user: return jsonify({'error': 'auth'}), 401
+    if request.method == 'GET':
+        return jsonify({'id': user['id'], 'username': user['username'], 'bio': user.get('bio', '')})
     data = request.json or {}
     bio = data.get('bio', '').strip()[:200]
     try:
-        conn = get_db()
-        cur = conn.cursor()
+        conn = get_db(); cur = conn.cursor()
         cur.execute('UPDATE users SET bio=%s WHERE id=%s', (bio, user['id']))
-        conn.commit()
-        cur.close(); conn.close()
+        conn.commit(); cur.close(); conn.close()
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 # ── SOCKETS ────────────────────────────────────────────────
-
 @socketio.on('connect')
-def on_connect():
-    pass
+def on_connect(): pass
 
 @socketio.on('join')
 def on_join(data):
     cid = data.get('cid')
-    if cid:
-        join_room(f'chat_{cid}')
+    if cid: join_room(f'chat_{cid}')
 
-@socketio.on('msg')
 @socketio.on('msg')
 def on_msg(data):
     user = get_user()
-    if not user:
-        return
-    cid = data.get('cid')
-    content = data.get('content', '').strip()
-    reply_to = data.get('reply_to')
-    if not cid or not content:
-        return
-    conn = get_db()
-    cur = conn.cursor()
+    if not user: return
+    cid = data.get('cid'); content = data.get('content', '').strip(); reply_to = data.get('reply_to')
+    if not cid or not content: return
+    conn = get_db(); cur = conn.cursor()
     cur.execute('SELECT 1 FROM chat_members WHERE chat_id=%s AND user_id=%s', (cid, user['id']))
-    if not cur.fetchone():
-        cur.close()
-        conn.close()
-        return
-    cur.execute('INSERT INTO messages (chat_id, user_id, content, reply_to) VALUES (%s,%s,%s,%s) RETURNING id',
-                (cid, user['id'], content, reply_to))
+    if not cur.fetchone(): return
+    cur.execute('INSERT INTO messages (chat_id, user_id, content, reply_to) VALUES (%s,%s,%s,%s) RETURNING id', (cid, user['id'], content, reply_to))
     mid = cur.fetchone()['id']
-    reply_content = None
-    reply_user = None
+    reply_content = None; reply_user = None
     if reply_to:
         cur.execute('SELECT m.content, u.username FROM messages m JOIN users u ON m.user_id=u.id WHERE m.id=%s', (reply_to,))
         rm = cur.fetchone()
-        if rm:
-            reply_content = rm['content']
-            reply_user = rm['username']
-    conn.commit()
-    cur.close()
-    conn.close()
+        if rm: reply_content, reply_user = rm['content'], rm['username']
+    conn.commit(); cur.close(); conn.close()
     emit('msg', {
-        'id': mid,
-        'cid': cid,
-        'uid': user['id'],
-        'user': user['username'],
-        'text': content,
-        'time': datetime.now().strftime('%H:%M'),
-        'reply_to': reply_to,
-        'reply_content': reply_content,
-        'reply_user': reply_user,
-        'edited': 0,
-        'deleted': 0
+        'id': mid, 'cid': cid, 'uid': user['id'], 'user': user['username'],
+        'text': content, 'time': datetime.now().strftime('%H:%M'),
+        'reply_to': reply_to, 'reply_content': reply_content, 'reply_user': reply_user,
+        'edited': 0, 'deleted': 0
     }, broadcast=True)
+
 @socketio.on('typing')
 def on_typing(data):
     user = get_user()
-    if not user:
-        return
+    if not user: return
     cid = data.get('cid')
-    if cid:
-        emit('typing', {'user': user['username'], 'cid': cid}, room=f'chat_{cid}', include_self=False)
+    if cid: emit('typing', {'user': user['username'], 'cid': cid}, room=f'chat_{cid}', include_self=False)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
