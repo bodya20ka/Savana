@@ -413,6 +413,18 @@
       document.getElementById('chName').textContent = data.chat.name || 'Чат';
       data.messages.forEach(m => appendMsg(m));
       scrollDown();
+      // Автообновление сообщений каждые 2 секунды если чат открыт
+if (window.chatRefreshInterval) clearInterval(window.chatRefreshInterval);
+window.chatRefreshInterval = setInterval(() => {
+    if (!currentCid) return;
+    fetch('/api/chat/' + currentCid)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('msgs').innerHTML = '';
+            data.messages.forEach(m => appendMsg(m));
+            scrollDown();
+        });
+}, 2000);
       socket.emit('join', {cid: cid});
     });
   }
@@ -476,6 +488,20 @@
   }
 
   if (window.innerWidth <= 768) document.getElementById('backBtn').style.display = 'flex';
+  // Автообновление списка чатов каждые 3 секунды
+setInterval(() => {
+    fetch('/')
+        .then(r => r.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newChatList = doc.getElementById('chatList');
+            if (newChatList) {
+                document.getElementById('chatList').innerHTML = newChatList.innerHTML;
+            }
+        })
+        .catch(() => {});
+}, 3000);
 </script>
 </body>
 </html>
