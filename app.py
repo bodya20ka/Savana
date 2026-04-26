@@ -7,7 +7,6 @@ from flask import Flask, render_template, request, redirect, session, jsonify
 from flask_socketio import SocketIO, emit, join_room
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from psycopg2.pool import SimpleConnectionPool
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'savana-secret-2026')
@@ -92,6 +91,12 @@ def index():
         chats = cur.fetchall()
         cur.close()
         conn.close()
+        
+        # Конвертируем datetime в строки для шаблона
+        for ch in chats:
+            if ch.get('last_msg_time') and not isinstance(ch['last_msg_time'], str):
+                ch['last_msg_time'] = ch['last_msg_time'].strftime('%Y-%m-%d %H:%M:%S')
+        
         return render_template('index.html', user=user, chats=chats)
     except Exception as e:
         import traceback
