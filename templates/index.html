@@ -2,93 +2,128 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Savana Messenger</title>
     <style>
-        :root { --bg: #121212; --sidebar: #1e1e1e; --primary: #ff6b35; --text: #e0e0e0; }
-        body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; overflow: hidden; }
-        .sidebar { width: 280px; background: var(--sidebar); padding: 15px; display: flex; flex-direction: column; border-right: 1px solid #333; }
-        .main { flex: 1; display: flex; flex-direction: column; }
-        .header { padding: 15px; background: var(--sidebar); border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        :root { --bg: #121212; --sidebar: #1e1e1e; --primary: #ff6b35; --text: #e0e0e0; --border: #333; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
+        
+        .app-container { display: flex; height: 100vh; position: relative; }
+        
+        /* Sidebar */
+        .sidebar { width: 280px; background: var(--sidebar); padding: 15px; display: flex; flex-direction: column; border-right: 1px solid var(--border); z-index: 10; }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .sidebar-header .user-info { font-size: 0.9em; }
+        .sidebar-header .user-info span { font-weight: bold; font-size: 1.1em; }
+        .sidebar-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+        .btn { flex: 1; background: var(--primary); border: none; padding: 10px; color: white; border-radius: 6px; cursor: pointer; font-weight: 500; }
+        .btn-secondary { background: #444; }
         .chat-list { overflow-y: auto; flex: 1; }
         .chat-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #2a2a2a; transition: 0.2s; }
         .chat-item:hover, .chat-item.active { background: #2a2a2a; }
-        .chat-name { font-weight: bold; margin-bottom: 4px; }
+        .chat-name { font-weight: 600; margin-bottom: 4px; display: flex; justify-content: space-between; }
+        .chat-time { font-size: 0.75em; color: #888; }
         .chat-preview { font-size: 0.85em; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .chat-time { font-size: 0.7em; color: #666; float: right; }
         
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center; }
+        /* Main Area */
+        .main { flex: 1; display: flex; flex-direction: column; background: #0a0a0a; }
+        .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 20px; }
+        
+        /* Mobile Toggle & Overlay */
+        .menu-toggle { display: none; position: fixed; top: 10px; left: 10px; z-index: 100; background: var(--sidebar); border: 1px solid #444; padding: 8px 12px; border-radius: 6px; color: white; cursor: pointer; font-size: 1.2em; }
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 5; }
+        
+        @media (max-width: 768px) {
+            .sidebar { position: fixed; top: 0; left: -100%; width: 85%; max-width: 300px; height: 100%; transition: left 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow: 4px 0 15px rgba(0,0,0,0.7); }
+            .sidebar.open { left: 0; }
+            .menu-toggle { display: flex; align-items: center; justify-content: center; }
+            .overlay.open { display: block; }
+        }
+        @media (min-width: 769px) { .menu-toggle { display: none; } }
+        
+        /* Modals */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 200; justify-content: center; align-items: center; padding: 20px; }
         .modal.open { display: flex; }
-        .modal-content { background: var(--sidebar); padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; }
-        .modal input, .modal textarea, .modal select { width: 100%; padding: 10px; margin: 8px 0; background: #2a2a2a; border: 1px solid #444; color: white; border-radius: 5px; box-sizing: border-box; }
-        .modal button { background: var(--primary); border: none; padding: 10px 20px; color: white; cursor: pointer; border-radius: 5px; margin-top: 10px; }
-        .btn-close { background: #555; margin-left: 8px; }
+        .modal-content { background: var(--sidebar); padding: 20px; border-radius: 12px; width: 100%; max-width: 400px; max-height: 90vh; overflow-y: auto; }
+        .modal-content input, .modal-content textarea, .modal-content select { width: 100%; padding: 10px; margin: 8px 0; background: #2a2a2a; border: 1px solid #444; color: white; border-radius: 6px; }
+        .modal-content button { background: var(--primary); border: none; padding: 10px 16px; color: white; cursor: pointer; border-radius: 6px; margin-top: 10px; margin-right: 8px; }
+        .btn-close { background: #555; }
         
-        .welcome { text-align: center; margin-top: 20%; }
-        .error { color: #ff4444; margin: 10px 0; }
+        /* Auth Forms */
+        .auth-container { display: flex; justify-content: center; align-items: center; height: 100vh; padding: 20px; }
+        .auth-box { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 12px; }
+        .auth-box input { width: 100%; padding: 12px; background: #2a2a2a; border: 1px solid #444; color: white; border-radius: 6px; }
+        .error { color: #ff4444; font-size: 0.9em; margin: 5px 0; }
     </style>
 </head>
 <body>
     {% if not user %}
-    <div style="width:100%; display:flex; justify-content:center; align-items:center; height:100vh; flex-direction:column;">
-        <h1>🦁 Savana</h1>
-        <p>Мессенджер нового поколения</p>
-        {% if error %}<div class="error">{{ error }}</div>{% endif %}
-        <form method="POST" style="display:flex; flex-direction:column; gap:10px; width:250px;">
-            {% if login %}
+    <div class="auth-container">
+        <div class="auth-box">
+            <h1 style="text-align:center;">🦁 Savana</h1>
+            <p style="text-align:center; color:#aaa;">Мессенджер нового поколения</p>
+            {% if error %}<div class="error">{{ error }}</div>{% endif %}
+            <form method="POST" style="display:flex; flex-direction:column; gap:10px;">
+                {% if login %}
                 <h3>Войти</h3>
                 <input type="text" name="username" placeholder="Логин" required>
                 <input type="password" name="password" placeholder="Пароль" required>
-                <button type="submit">Войти</button>
-                <a href="/register">Нет аккаунта? Зарегистрироваться</a>
-            {% else %}
-                <h3>Зарегистрироваться</h3>
-                <input type="text" name="username" placeholder="Логин" required>
-                <input type="password" name="password" placeholder="Пароль" required>
-                <button type="submit">Создать аккаунт</button>
-                <a href="/login">Уже есть аккаунт? Войти</a>
-            {% endif %}
-        </form>
+                <button type="submit" class="btn">Войти</button>
+                <a href="/register" style="text-align:center; color:#aaa; font-size:0.9em;">Нет аккаунта? Зарегистрироваться</a>
+                {% else %}
+                <h3>Регистрация</h3>
+                <input type="text" name="username" placeholder="Придумайте логин" required>
+                <input type="password" name="password" placeholder="Придумайте пароль" required>
+                <button type="submit" class="btn">Создать аккаунт</button>
+                <a href="/login" style="text-align:center; color:#aaa; font-size:0.9em;">Уже есть аккаунт? Войти</a>
+                {% endif %}
+            </form>
+        </div>
     </div>
     {% else %}
-    <div class="sidebar">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <div>
-                <span style="font-size:1.2em; font-weight:bold;">{{ user.username[0]|upper }}</span> {{ user.username }}
-                <div style="font-size:0.7em; color:#aaa;">@{{ user.username }}</div>
-            </div>
-            <button onclick="openProfile()" style="background:none; border:none; color:white; cursor:pointer; font-size:1.2em;">👤</button>
-        </div>
-        <div style="display:flex; gap:8px; margin-bottom:10px;">
-            <button onclick="openNewChat()" style="flex:1; background:var(--primary); border:none; padding:8px; color:white; border-radius:5px; cursor:pointer;">✏️ Новый чат</button>
-            <button onclick="window.location='/logout'" style="background:#444; border:none; padding:8px; color:white; border-radius:5px; cursor:pointer;">🚪</button>
-        </div>
-        <div class="chat-list" id="chat-list">
-            {% for ch in chats %}
-            <div class="chat-item" onclick="loadChat({{ ch.id }})">
-                <div class="chat-name">
-                    {{ (ch.last_msg_user or '?')[0]|upper }} 
-                    {% if ch.type=='private' %}Личный{% else %}{{ ch.name }}{% endif %}
-                    <span class="chat-time">{{ ch.last_msg_time[11:16] if ch.last_msg_time else '' }}</span>
+    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    <div class="overlay" onclick="toggleSidebar()"></div>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="user-info">
+                    <span>{{ user.username[0]|upper }}</span> {{ user.username }}
+                    <div style="font-size:0.75em; color:#888;">@{{ user.username }}</div>
                 </div>
-                <div class="chat-preview">{{ ch.last_msg or 'Начните общение...' }}</div>
+                <button onclick="openProfile()" style="background:none; border:none; color:white; cursor:pointer; font-size:1.2em;" title="Профиль">👤</button>
             </div>
-            {% endfor %}
-        </div>
+            <div class="sidebar-actions">
+                <button onclick="openNewChat()" class="btn">✏️ Новый чат</button>
+                <button onclick="window.location='/logout'" class="btn btn-secondary" title="Выйти">🚪</button>
+            </div>
+            <div class="chat-list" id="chat-list">
+                {% for ch in chats %}
+                <div class="chat-item" onclick="loadChat({{ ch.id }})">
+                    <div class="chat-name">
+                        {{ (ch.last_msg_user or '?')[0]|upper }} {% if ch.type=='private' %}Личный{% else %}{{ ch.name }}{% endif %}
+                        <span class="chat-time">{{ ch.last_msg_time[11:16] if ch.last_msg_time else '' }}</span>
+                    </div>
+                    <div class="chat-preview">{{ ch.last_msg or 'Начните общение...' }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </aside>
+
+        <main class="main">
+            <div class="welcome" id="chat-area">
+                <h1>🦁 Добро пожаловать</h1>
+                <p style="color:#888;">Выбери чат слева или создай новый</p>
+            </div>
+        </main>
     </div>
 
-    <div class="main">
-        <div class="welcome" id="chat-area">
-            <h1>🦁 Добро пожаловать в Savana</h1>
-            <p>Выбери чат слева или создай новый</p>
-        </div>
-    </div>
-
+    <!-- Profile Modal -->
     <div id="profile-modal" class="modal">
         <div class="modal-content">
             <h3>✏️ Редактирование профиля</h3>
             <label>О себе:</label>
-            <textarea id="bio-input" rows="4" maxlength="200"></textarea>
+            <textarea id="bio-input" rows="4" maxlength="200" placeholder="Расскажите о себе..."></textarea>
             <div style="display:flex; justify-content:flex-end; margin-top:10px;">
                 <button onclick="saveProfile()">💾 Сохранить</button>
                 <button class="btn-close" onclick="closeModal('profile-modal')">Отмена</button>
@@ -96,11 +131,12 @@
         </div>
     </div>
 
+    <!-- New Chat Modal -->
     <div id="newchat-modal" class="modal">
         <div class="modal-content">
             <h3>✏️ Создание чата</h3>
             <select id="chat-type">
-                <option value="private">👤 Личный</option>
+                <option value="private">👤 Личный чат</option>
                 <option value="group">👥 Группа</option>
                 <option value="channel">📢 Общий/Канал</option>
             </select>
@@ -114,55 +150,90 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
     <script>
         const socket = io();
+        
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.querySelector('.overlay').classList.toggle('open');
+        }
+        
         function openProfile() {
             fetch('/api/profile').then(r=>r.json()).then(d=>{
-                document.getElementById('bio-input').value = d.bio||'';
+                document.getElementById('bio-input').value = d.bio || '';
                 document.getElementById('profile-modal').classList.add('open');
+                if(window.innerWidth <= 768) toggleSidebar();
             });
         }
         function saveProfile() {
-            fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bio:document.getElementById('bio-input').value})})
-            .then(r=>r.json()).then(d=>{if(d.ok)closeModal('profile-modal')});
+            const bio = document.getElementById('bio-input').value;
+            fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bio})})
+            .then(r=>r.json()).then(d=>{ if(d.ok) closeModal('profile-modal'); else alert('Ошибка сохранения'); });
         }
-        function openNewChat(){document.getElementById('newchat-modal').classList.add('open');}
-        function closeModal(id){document.getElementById(id).classList.remove('open');}
-        function createChat(){
-            const type=document.getElementById('chat-type').value;
-            const name=document.getElementById('chat-name').value;
-            const desc=document.getElementById('chat-desc').value;
-            const target=document.getElementById('chat-target').value;
-            const err=document.getElementById('chat-error');
-            err.textContent='';
-            if(type==='private'&&!target){err.textContent='Введите логин';return;}
-            if(type!=='private'&&!name){err.textContent='Введите название';return;}
+        
+        function openNewChat() {
+            document.getElementById('newchat-modal').classList.add('open');
+            if(window.innerWidth <= 768) toggleSidebar();
+        }
+        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+        
+        function createChat() {
+            const type = document.getElementById('chat-type').value;
+            const name = document.getElementById('chat-name').value;
+            const desc = document.getElementById('chat-desc').value;
+            const target = document.getElementById('chat-target').value;
+            const err = document.getElementById('chat-error');
+            err.textContent = '';
             
-            let uid=null;
-            if(type==='private'){
-                fetch('/api/search?q='+target).then(r=>r.json()).then(d=>{if(d.users.length)uid=d.users[0].id;});
+            if(type==='private' && !target) { err.textContent = 'Введите логин пользователя'; return; }
+            if(type!=='private' && !name) { err.textContent = 'Введите название чата'; return; }
+            
+            let uid = null;
+            const proceed = () => {
+                fetch('/api/create_chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type, name, desc, target_uid: uid})})
+                .then(r=>r.json()).then(d=>{
+                    if(d.ok) location.reload();
+                    else err.textContent = 'Ошибка: ' + (d.error || 'неизвестно');
+                });
+            };
+            
+            if(type === 'private' && target) {
+                fetch('/api/search?q=' + encodeURIComponent(target))
+                .then(r=>r.json()).then(d => {
+                    if(d.users && d.users.length > 0) uid = d.users[0].id;
+                    proceed();
+                }).catch(() => proceed());
+            } else {
+                proceed();
             }
-            setTimeout(()=>{
-                fetch('/api/create_chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,name,desc,target_uid:uid})})
-                .then(r=>r.json()).then(d=>{if(d.ok)location.reload(); else err.textContent='Ошибка: '+d.error;});
-            }, type==='private'?800:0);
         }
-        function loadChat(cid){
-            document.querySelectorAll('.chat-item').forEach(el=>el.classList.remove('active'));
+        
+        function loadChat(cid) {
+            document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
             event.currentTarget.classList.add('active');
-            socket.emit('join',{cid});
-            document.getElementById('chat-area').innerHTML=`<h3>📂 Чат #${cid}</h3><p>Подключение к сокетам...</p>`;
+            socket.emit('join', {cid});
+            document.getElementById('chat-area').innerHTML = `<h3>📂 Чат #${cid}</h3><p style="color:#888">Подключение к сообщениям...</p>`;
+            if(window.innerWidth <= 768) toggleSidebar();
         }
-        socket.on('msg',()=>{fetch('/api/chats').then(r=>r.json()).then(d=>{
-            document.getElementById('chat-list').innerHTML=d.chats.map(ch=>`
-                <div class="chat-item" onclick="loadChat(${ch.id})">
-                    <div class="chat-name">${ch.last_msg_user?ch.last_msg_user[0].toUpperCase():'?' ${ch.type==='private'?'Личный':ch.name}} <span class="chat-time">${ch.last_msg_time?ch.last_msg_time.slice(11,16):''}</span></div>
-                    <div class="chat-preview">${ch.last_msg||'Начните общение...'}</div>
-                </div>`).join('');
-        });});
+        
+        socket.on('msg', () => {
+            fetch('/api/chats').then(r=>r.json()).then(d=>{
+                if(!d.chats) return;
+                document.getElementById('chat-list').innerHTML = d.chats.map(ch => `
+                    <div class="chat-item" onclick="loadChat(${ch.id})">
+                        <div class="chat-name">
+                            ${ch.last_msg_user ? ch.last_msg_user[0].toUpperCase() : '?'} 
+                            ${ch.type==='private' ? 'Личный' : ch.name}
+                            <span class="chat-time">${ch.last_msg_time ? ch.last_msg_time.slice(11,16) : ''}</span>
+                        </div>
+                        <div class="chat-preview">${ch.last_msg || 'Начните общение...'}</div>
+                    </div>
+                `).join('');
+            });
+        });
     </script>
-    {% endif %}
 </body>
-              </html>
+    </html>
