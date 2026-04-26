@@ -68,7 +68,6 @@ def get_user():
     except:
         return None
 
-# ── ROUTES ────────────────────────────────────────────────
 @app.route('/')
 def index():
     user = get_user()
@@ -79,7 +78,6 @@ def index():
         cur = conn.cursor()
         cur.execute('''
             SELECT c.id, c.type, c.name, c.description, c.created_at,
-            (SELECT COUNT(*) FROM chat_members WHERE chat_id=c.id) as members_count,
             (SELECT content FROM messages WHERE chat_id=c.id AND deleted=0 ORDER BY id DESC LIMIT 1) as last_msg,
             (SELECT u.username FROM messages m JOIN users u ON m.user_id=u.id WHERE m.chat_id=c.id AND m.deleted=0 ORDER BY m.id DESC LIMIT 1) as last_msg_user,
             (SELECT created_at FROM messages WHERE chat_id=c.id AND deleted=0 ORDER BY id DESC LIMIT 1) as last_msg_time
@@ -147,7 +145,6 @@ def logout():
     session.pop('uid', None)
     return redirect('/login')
 
-# ── API ────────────────────────────────────────────────────
 @app.route('/api/search')
 def api_search():
     user = get_user()
@@ -190,7 +187,7 @@ def api_chats():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/chat/<int:cid>')  # Исправлен синтаксис маршрута
+@app.route('/api/chat/<int:cid>')
 def api_chat(cid):
     user = get_user()
     if not user: return jsonify({'error': 'auth'}), 401
@@ -272,85 +269,6 @@ def api_create_chat():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/invite', methods=['POST'])
-def api_invite():
-    user = get_user()
-    if not user: return jsonify({'error': 'auth'}), 401
-    data = request.json or {}
-    cid = data.get('chat_id'); target_uid = data.get('target_uid')
-    try:
-        conn = get_db(); cur = conn.cursor()
-        cur.execute('INSERT INTO chat_members (chat_id, user_id) VALUES (%s,%s)', (cid, target_uid))
-        conn.commit(); cur.close(); conn.close()
-        return jsonify({'ok': True})
-    except psycopg2.errors.UniqueViolation:
-        return jsonify({'error': 'exists'}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/msg/edit', methods=['POST'])
-def api_edit_msg():
-    user = get_user()
-    if not user: return jsonify({'error': 'auth'}), 401
-    data = request.json or {}; mid = data.get('id'); content = data.get('content', '').strip()
-    try:
-        conn = get_db(); cur = conn.cursor()
-        cur.execute('SELECT * FROM messages WHERE id=%s AND user_id=%s', (mid, user['id']))
-        msg = cur.fetchone()
-        if not msg: return jsonify({'error': 'not found'}), 404
-        cur.execute('UPDATE messages SET content=%s, edited=1 WHERE id=%s', (content, mid))
-        conn.commit(); cur.close(); conn.close()
-        socketio.emit('msg_edited', {'id': mid, 'content': content, 'cid': msg['chat_id']}, room=f'chat_{msg["chat_id"]}')
-        return jsonify({'ok': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/msg/delete', methods=['POST'])
-def api_delete_msg():
-    user = get_user()
-    if not user: return jsonify({'error': 'auth'}), 401
-    data = request.json or {}; mid = data.get('id')
-    try:
-        conn = get_db(); cur = conn.cursor()
-        cur.execute('SELECT * FROM messages WHERE id=%s AND user_id=%s', (mid, user['id']))
-        msg = cur.fetchone()
-        if not msg: return jsonify({'error': 'not found'}), 404
-        cur.execute("UPDATE messages SET deleted=1, content='Сообщение удалено' WHERE id=%s", (mid,))
-        conn.commit(); cur.close(); conn.close()
-        socketio.emit('msg_deleted', {'id': mid, 'cid': msg['chat_id']}, room=f'chat_{msg["chat_id"]}')
-        return jsonify({'ok': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/msg/react', methods=['POST'])
-def api_react():
-    user = get_user()
-    if not user: return jsonify({'error': 'auth'}), 401
-    data = request.json or {}; mid = data.get('id'); emoji = data.get('emoji', '')
-    try:
-        conn = get_db(); cur = conn.cursor()
-        cur.execute('SELECT chat_id FROM messages WHERE id=%s', (mid,))
-        msg = cur.fetchone()
-        if not msg: return jsonify({'error': 'not found'}), 404
-        cur.execute('SELECT * FROM reactions WHERE msg_id=%s AND user_id=%s', (mid, user['id']))
-        existing = cur.fetchone()
-        if existing:
-            if existing['emoji'] == emoji:
-                cur.execute('DELETE FROM reactions WHERE msg_id=%s AND user_id=%s', (mid, user['id']))
-            else:
-                cur.execute('UPDATE reactions SET emoji=%s WHERE msg_id=%s AND user_id=%s', (emoji, mid, user['id']))
-        else:
-            cur.execute('INSERT INTO reactions (msg_id, user_id, emoji) VALUES (%s,%s,%s)', (mid, user['id'], emoji))
-        conn.commit()
-        cur.execute('''SELECT emoji, COUNT(*) as cnt, STRING_AGG(user_id::text, ',') as user_ids
-            FROM reactions WHERE msg_id=%s GROUP BY emoji''', (mid,))
-        reacts = cur.fetchall(); cur.close(); conn.close()
-        reactions = [{'emoji': r['emoji'], 'cnt': r['cnt'], 'mine': str(user['id']) in (r['user_ids'] or '').split(',')} for r in reacts]
-        socketio.emit('reactions_updated', {'id': mid, 'cid': msg['chat_id'], 'reactions': reactions}, room=f'chat_{msg["chat_id"]}')
-        return jsonify({'ok': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 @app.route('/api/profile', methods=['GET', 'POST'])
 def api_profile():
     user = get_user()
@@ -367,7 +285,6 @@ def api_profile():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ── SOCKETS ────────────────────────────────────────────────
 @socketio.on('connect')
 def on_connect(): pass
 
