@@ -408,6 +408,7 @@
     document.getElementById('welcomeScreen').style.display = 'none';
     document.getElementById('chatUI').style.display = 'flex';
     document.getElementById('msgs').innerHTML = '';
+    socket.emit('join', {cid: cid});
     fetch('/api/chat/' + cid).then(r=>r.json()).then(data => {
       document.getElementById('chName').textContent = data.chat.name || 'Чат';
       data.messages.forEach(m => appendMsg(m));
