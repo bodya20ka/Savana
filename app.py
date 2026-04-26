@@ -403,6 +403,7 @@ def on_join(data):
         join_room(f'chat_{cid}')
 
 @socketio.on('msg')
+@socketio.on('msg')
 def on_msg(data):
     user = get_user()
     if not user:
@@ -412,34 +413,40 @@ def on_msg(data):
     reply_to = data.get('reply_to')
     if not cid or not content:
         return
-    try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute('SELECT 1 FROM chat_members WHERE chat_id=%s AND user_id=%s', (cid, user['id']))
-        if not cur.fetchone():
-            cur.close(); conn.close()
-            return
-        cur.execute('INSERT INTO messages (chat_id, user_id, content, reply_to) VALUES (%s,%s,%s,%s) RETURNING id',
-                    (cid, user['id'], content, reply_to))
-        mid = cur.fetchone()['id']
-        reply_content = None
-        reply_user = None
-        if reply_to:
-            cur.execute('SELECT m.content, u.username FROM messages m JOIN users u ON m.user_id=u.id WHERE m.id=%s', (reply_to,))
-            rm = cur.fetchone()
-            if rm:
-                reply_content = rm['content']; reply_user = rm['username']
-        conn.commit()
-        cur.close(); conn.close()
-        emit('msg', {
-            'id': mid, 'cid': cid, 'uid': user['id'], 'user': user['username'],
-            'text': content, 'time': datetime.now().strftime('%H:%M'),
-            'reply_to': reply_to, 'reply_content': reply_content, 'reply_user': reply_user,
-            'edited': 0, 'deleted': 0
-        }, room=f'chat_{cid}')
-    except Exception as e:
-        print(f"Socket msg error: {e}", file=sys.stderr)
-
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute('SELECT 1 FROM chat_members WHERE chat_id=%s AND user_id=%s', (cid, user['id']))
+    if not cur.fetchone():
+        cur.close()
+        conn.close()
+        return
+    cur.execute('INSERT INTO messages (chat_id, user_id, content, reply_to) VALUES (%s,%s,%s,%s) RETURNING id',
+                (cid, user['id'], content, reply_to))
+    mid = cur.fetchone()['id']
+    reply_content = None
+    reply_user = None
+    if reply_to:
+        cur.execute('SELECT m.content, u.username FROM messages m JOIN users u ON m.user_id=u.id WHERE m.id=%s', (reply_to,))
+        rm = cur.fetchone()
+        if rm:
+            reply_content = rm['content']
+            reply_user = rm['username']
+    conn.commit()
+    cur.close()
+    conn.close()
+    emit('msg', {
+        'id': mid,
+        'cid': cid,
+        'uid': user['id'],
+        'user': user['username'],
+        'text': content,
+        'time': datetime.now().strftime('%H:%M'),
+        'reply_to': reply_to,
+        'reply_content': reply_content,
+        'reply_user': reply_user,
+        'edited': 0,
+        'deleted': 0
+    }, broadcast=True)
 @socketio.on('typing')
 def on_typing(data):
     user = get_user()
