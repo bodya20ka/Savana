@@ -10,7 +10,7 @@ from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'savana-secret-2026')
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*", ping_timeout=30, ping_interval=15)
+socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins="*", ping_timeout=30, ping_interval=15)
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
