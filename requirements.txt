@@ -1,6 +1,5 @@
 flask
 flask-socketio
-gevent
-gevent-websocket
+eventlet==0.36.1
 gunicorn
 psycopg2-binary
