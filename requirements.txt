@@ -1,4 +1,5 @@
 flask
 flask-socketio
-eventlet
+gevent
+gevent-websocket
 psycopg2-binary
