@@ -2,11 +2,14 @@ import os
 import hashlib
 import sys
 import time
+import logging
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, session, jsonify
 from flask_socketio import SocketIO, emit, join_room
 import psycopg2
 from psycopg2.extras import RealDictCursor
+
+log = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'savana-secret-2026')
@@ -89,18 +92,25 @@ def index():
             WHERE cm.user_id=%s GROUP BY c.id ORDER BY last_msg_time DESC NULLS LAST, c.id DESC
         ''', (user['id'],))
         chats = cur.fetchall()
-        cur.close()
-        conn.close()
-        
-        # Конвертируем datetime в строки для шаблона
+
         for ch in chats:
             if ch.get('last_msg_time') and not isinstance(ch['last_msg_time'], str):
                 ch['last_msg_time'] = ch['last_msg_time'].strftime('%Y-%m-%d %H:%M:%S')
-        
+            if ch['type'] == 'private':
+                cur.execute(
+                    'SELECT u.username FROM chat_members cm JOIN users u ON cm.user_id=u.id '
+                    'WHERE cm.chat_id=%s AND cm.user_id!=%s LIMIT 1',
+                    (ch['id'], user['id']))
+                partner = cur.fetchone()
+                ch['partner_name'] = partner['username'] if partner else 'User'
+
+        cur.close()
+        conn.close()
         return render_template('index.html', user=user, chats=chats)
     except Exception as e:
-        import traceback
-        return f"<h1>Ошибка</h1><pre>{traceback.format_exc()}</pre>", 500
+        log.exception('Index page error')
+        return render_template('index.html', error='\u041f\u0440\u043e\u0438\u0437\u043e\u0448\u043b\u0430 \u043e\u0448\u0438\u0431\u043a\u0430. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437.',
+                               login=True, user=None, chats=[])
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -395,16 +405,21 @@ def api_profile():
 @socketio.on('connect')
 def on_connect():
     user = get_user()
-    if not user: return
+    if not user:
+        return
     try:
-        # Join personal room for receiving new chat notifications
         join_room(f'user_{user["id"]}')
-        conn = get_db(); cur = conn.cursor()
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE users SET last_seen=NOW() WHERE id=%s', (user['id'],))
+        conn.commit()
         cur.execute('SELECT chat_id FROM chat_members WHERE user_id=%s', (user['id'],))
         for row in cur.fetchall():
             join_room(f'chat_{row["chat_id"]}')
-        cur.close(); conn.close()
-    except: pass
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
 
 @socketio.on('join')
 def on_join(data):
@@ -443,30 +458,32 @@ def on_msg(data):
     conn.commit()
     cur.close()
     conn.close()
+    now = datetime.now()
     msg_data = {
         'id': mid,
         'cid': cid,
         'uid': user['id'],
         'user': user['username'],
         'text': content,
-        'time': datetime.now().strftime('%H:%M'),
+        'time': now.strftime('%H:%M'),
+        'created_at': now.isoformat(),
         'reply_to': reply_to,
         'reply_content': reply_content,
         'reply_user': reply_user,
         'edited': 0,
         'deleted': 0
     }
-    # Send to chat room (for those already in it)
     emit('msg', msg_data, room=f'chat_{cid}')
-    # Also notify each member personally via user room
     try:
         conn2 = get_db(); cur2 = conn2.cursor()
         cur2.execute('SELECT user_id FROM chat_members WHERE chat_id=%s', (cid,))
         members = cur2.fetchall()
         cur2.close(); conn2.close()
         for m in members:
-            socketio.emit('msg', msg_data, room=f'user_{m["user_id"]}')
-    except: pass
+            if m['user_id'] != user['id']:
+                socketio.emit('msg', msg_data, room=f'user_{m["user_id"]}')
+    except Exception:
+        pass
 @socketio.on('typing')
 def on_typing(data):
     user = get_user()
@@ -475,6 +492,49 @@ def on_typing(data):
     cid = data.get('cid')
     if cid:
         emit('typing', {'user': user['username'], 'cid': cid}, room=f'chat_{cid}', include_self=False)
+
+@socketio.on('game_invite')
+def on_game_invite(data):
+    user = get_user()
+    if not user:
+        return
+    cid = data.get('cid')
+    game_id = data.get('game_id')
+    if cid and game_id:
+        emit('game_invite', {
+            'cid': cid,
+            'game_id': game_id,
+            'from_user': user['username'],
+            'from_uid': user['id']
+        }, room=f'chat_{cid}', include_self=False)
+
+@socketio.on('game_accept')
+def on_game_accept(data):
+    cid = data.get('cid')
+    game_id = data.get('game_id')
+    if cid and game_id:
+        emit('game_start', {'cid': cid, 'game_id': game_id, 'color': 'red'}, room=f'chat_{cid}')
+
+@socketio.on('game_move')
+def on_game_move(data):
+    cid = data.get('cid')
+    if cid:
+        emit('game_move', data, room=f'chat_{cid}', include_self=False)
+
+@socketio.on('disconnect')
+def on_disconnect():
+    user = get_user()
+    if not user:
+        return
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('UPDATE users SET last_seen=NOW() WHERE id=%s', (user['id'],))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception:
+        pass
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
