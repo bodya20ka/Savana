@@ -157,10 +157,27 @@
     .em-label { font-size: 13px; color: var(--accent); flex: 1; }
 
     .input-wrap { padding: 8px 12px; background: var(--sidebar); border-top: 1px solid var(--border); display: flex; align-items: flex-end; gap: 8px; }
+    .emoji-toggle { background: none; border: none; font-size: 22px; cursor: pointer; padding: 6px; border-radius: 50%; transition: background .2s; flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; }
+    .emoji-toggle:hover { background: var(--hover); }
     .msg-input { flex: 1; padding: 10px 14px; border: none; border-radius: 20px; background: var(--panel); color: var(--text); font-size: 14px; outline: none; font-family: inherit; resize: none; max-height: 120px; overflow-y: auto; line-height: 1.4; }
     .msg-input::placeholder { color: var(--muted); }
     .send-btn { background: var(--accent); border: none; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .2s; flex-shrink: 0; color: #fff; font-size: 18px; }
     .send-btn:hover { background: var(--accent-hover); }
+
+    .emoji-picker { display: none; position: absolute; bottom: 64px; left: 12px; right: 12px; max-width: 380px; background: var(--sidebar); border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.6); border: 1px solid var(--panel); z-index: 100; overflow: hidden; }
+    .emoji-picker.show { display: block; }
+    .ep-search { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    .ep-search input { width: 100%; padding: 8px 12px; border: none; border-radius: 10px; background: var(--panel); color: var(--text); font-size: 13px; outline: none; font-family: inherit; }
+    .ep-search input::placeholder { color: var(--muted); }
+    .ep-tabs { display: flex; padding: 4px 8px; gap: 2px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .ep-tab { font-size: 18px; padding: 6px 8px; cursor: pointer; border-radius: 8px; transition: background .15s; flex-shrink: 0; border: none; background: none; }
+    .ep-tab:hover, .ep-tab.active { background: var(--hover); }
+    .ep-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; padding: 8px; max-height: 260px; overflow-y: auto; }
+    .ep-grid::-webkit-scrollbar { width: 6px; }
+    .ep-grid::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 3px; }
+    .ep-emoji { font-size: 22px; padding: 6px; cursor: pointer; border-radius: 8px; transition: background .15s; text-align: center; border: none; background: none; line-height: 1; }
+    .ep-emoji:hover { background: var(--hover); transform: scale(1.2); }
+    .ep-cat-label { grid-column: 1 / -1; font-size: 12px; font-weight: 600; color: var(--muted); padding: 6px 4px 2px; text-transform: uppercase; letter-spacing: 0.5px; }
 
     .modal { display: none; position: fixed; inset: 0; background: var(--modal-bg); z-index: 400; align-items: center; justify-content: center; padding: 16px; }
     .modal.show { display: flex; }
@@ -304,7 +321,13 @@
       <div class="msgs-wrap" id="msgs"></div>
       <div class="edit-mode-bar" id="editBar"><span class="em-label">✏️ Редактирование</span><button class="icon-btn" onclick="cancelEdit()">✕</button></div>
       <div class="reply-bar" id="replyBar"><div class="rb-content"><div class="rb-user" id="replyUser"></div><div class="rb-text" id="replyText"></div></div><button class="icon-btn" onclick="cancelReply()">✕</button></div>
-      <div class="input-wrap">
+      <div class="input-wrap" style="position:relative;">
+        <div class="emoji-picker" id="emojiPicker">
+          <div class="ep-search"><input type="text" id="emojiSearch" placeholder="Поиск эмодзи..." oninput="filterEmojis(this.value)"></div>
+          <div class="ep-tabs" id="emojiTabs"></div>
+          <div class="ep-grid" id="emojiGrid"></div>
+        </div>
+        <button class="emoji-toggle" id="emojiToggleBtn" onclick="toggleEmojiPicker()" title="Эмодзи">😊</button>
         <textarea class="msg-input" id="msgIn" placeholder="Сообщение..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this); sendTyping()"></textarea>
         <button class="send-btn" onclick="sendMsg()">➤</button>
       </div>
@@ -772,6 +795,85 @@
 
   function handleKey(e) { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } }
   function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+
+  // ── EMOJI PICKER ──
+  const emojiData = {
+    'Смайлы': ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🫢','🫣','🤫','🤔','🫡','🤐','🤨','😐','😑','😶','🫥','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','🫤','😟','🙁','😮','😯','😲','😳','🥺','🥹','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖'],
+    'Жесты': ['👋','🤚','🖐️','✋','🖖','🫱','🫲','🫳','🫴','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','🫵','👍','👎','✊','👊','🤛','🤜','👏','🙌','🫶','👐','🤲','🤝','🙏','✍️','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🧠','🫀','🫁','🦷','🦴','👀','👁️','👅','👄','🫦','💋'],
+    'Люди': ['👶','🧒','👦','👧','🧑','👱','👨','🧔','👩','🧓','👴','👵','🙍','🙎','🙅','🙆','💁','🙋','🧏','🙇','🤦','🤷','👮','🕵️','💂','🥷','👷','🫅','🤴','👸','👳','👲','🧕','🤵','👰','🤰','🫃','🫄','🤱','👼','🎅','🤶','🦸','🦹','🧙','🧚','🧛','🧜','🧝','🧞','🧟','💆','💇','🚶','🧍','🧎','🏃','💃','🕺','🕴️','👯','🧖','🧗','🤸','⛹️','🏋️','🚴','🚵','🤼','🤽','🤾','🤺','⛷️','🏂','🏌️','🏇','🧘','🛀','🛌'],
+    'Любовь': ['💋','💌','💘','💝','💖','💗','💓','💞','💕','💟','❣️','💔','❤️‍🔥','❤️‍🩹','❤️','🧡','💛','💚','💙','💜','🤎','🖤','🤍','💯','💢','💥','💫','💦','💨','🕳️','💬','👁️‍🗨️','🗨️','🗯️','💭'],
+    'Животные': ['🐵','🐒','🦍','🦧','🐶','🐕','🦮','🐕‍🦺','🐩','🐺','🦊','🦝','🐱','🐈','🐈‍⬛','🦁','🐯','🐅','🐆','🐴','🐎','🦄','🦓','🦌','🦬','🐮','🐂','🐃','🐄','🐷','🐖','🐗','🐽','🐏','🐑','🐐','🐪','🐫','🦙','🦒','🐘','🦣','🦏','🦛','🐭','🐁','🐀','🐹','🐰','🐇','🐿️','🦫','🦔','🦇','🐻','🐻‍❄️','🐨','🐼','🦥','🦦','🦨','🦘','🦡','🐾','🦃','🐔','🐓','🐣','🐤','🐥','🐦','🐧','🕊️','🦅','🦆','🦢','🦉','🦤','🪶','🦩','🦚','🦜','🐸','🐊','🐢','🦎','🐍','🐲','🐉','🦕','🦖','🐳','🐋','🐬','🦭','🐟','🐠','🐡','🦈','🐙','🐚','🪸','🐌','🦋','🐛','🐜','🐝','🪲','🐞','🦗','🪳','🕷️','🕸️','🦂','🦟','🪰','🪱','🦠'],
+    'Еда': ['🍇','🍈','🍉','🍊','🍋','🍌','🍍','🥭','🍎','🍏','🍐','🍑','🍒','🍓','🫐','🥝','🍅','🫒','🥥','🥑','🍆','🥔','🥕','🌽','🌶️','🫑','🥒','🥬','🥦','🧄','🧅','🍄','🥜','🫘','🌰','🍞','🥐','🥖','🫓','🥨','🥯','🥞','🧇','🧀','🍖','🍗','🥩','🥓','🍔','🍟','🍕','🌭','🥪','🌮','🌯','🫔','🥙','🧆','🥚','🍳','🥘','🍲','🫕','🥣','🥗','🍿','🧈','🧂','🥫','🍱','🍘','🍙','🍚','🍛','🍜','🍝','🍠','🍢','🍣','🍤','🍥','🥮','🍡','🥟','🥠','🥡','🦀','🦞','🦐','🦑','🦪','🍦','🍧','🍨','🍩','🍪','🎂','🍰','🧁','🥧','🍫','🍬','🍭','🍮','🍯','🍼','🥛','☕','🫖','🍵','🍶','🍾','🍷','🍸','🍹','🍺','🍻','🥂','🥃','🫗','🥤','🧋','🧃','🧉','🧊'],
+    'Путешествия': ['🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🏍️','🛵','🛺','🚲','🛴','🚔','🚍','🚘','🚖','🛞','🚡','🚠','🚟','🚃','🚋','🚞','🚝','🚄','🚅','🚈','🚂','🚆','🚇','🚊','🚉','🛩️','✈️','🛫','🛬','🪂','💺','🚀','🛸','🚁','🛶','⛵','🚤','🛥️','🛳️','⛴️','🚢','🗼','🏰','🏯','🏟️','🎡','🎢','🎠','⛲','⛱️','🏖️','🏝️','🏜️','🌋','⛰️','🏔️','🗻','🏕️','🏠','🏡','🏗️','🏢','🏭','🏣','🏤','🏥','🏦','🏨','🏩','🏪','🏫','🏬','💒','🗽','⛪','🕌','🛕','🕍','⛩️','🕋'],
+    'Предметы': ['⌚','📱','📲','💻','⌨️','🖥️','🖨️','🖱️','🖲️','🕹️','🗜️','💽','💾','💿','📀','📼','📷','📸','📹','🎥','📽️','🎞️','📞','☎️','📟','📠','📺','📻','🎙️','🎚️','🎛️','🧭','⏱️','⏲️','⏰','🕰️','⌛','⏳','📡','🔋','🔌','💡','🔦','🕯️','🧯','🛢️','💸','💵','💴','💶','💷','🪙','💰','💳','💎','⚖️','🪜','🧰','🪛','🔧','🔨','⚒️','🛠️','⛏️','🪚','🔩','⚙️','🪤','🧱','⛓️','🧲','🔫','💣','🧨','🪓','🔪','🗡️','⚔️','🛡️','🚬','⚰️','🪦','⚱️','🏺','🔮','📿','🧿','🪬','💈','⚗️','🔭','🔬','🕳️','🩹','🩺','🩻','🩼','💊','💉','🩸','🧬','🦠','🧫','🧪','🌡️','🧹','🪠','🧺','🧻','🧼','🪥','🧽','🧴','🛎️','🔑','🗝️','🚪','🪑','🛋️','🛏️','🛌','🧸','🪆','🖼️','🪞','🪟','🛍️','🛒','🎁','🎈','🎏','🎀','🪄','🪅','🎊','🎉','🎎','🏮','🎐','🧧','✉️','📩','📨','📧','💌','📥','📤','📦','🏷️','🪧','📪','📫','📬','📭','📮','📯','📜','📃','📄','📑','🧾','📊','📈','📉','🗒️','🗓️','📆','📅','🗑️','📇','🗃️','🗳️','🗄️','📋','📁','📂','🗂️','🗞️','📰','📓','📔','📒','📕','📗','📘','📙','📚','📖','🔖','🧷','🔗','📎','🖇️','📐','📏','🧮','📌','📍','✂️','🖊️','🖋️','✒️','🖌️','🖍️','📝','✏️','🔍','🔎','🔏','🔐','🔒','🔓'],
+    'Символы': ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','❣️','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☪️','🕉️','☸️','✡️','🔯','🕎','☯️','☦️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚛️','🉑','☢️','☣️','📴','📳','🈶','🈚','🈸','🈺','🈷️','✴️','🆚','💮','🉐','㊙️','㊗️','🈴','🈵','🈹','🈲','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','⛔','📛','🚫','💯','💢','♨️','🚷','🚯','🚳','🚱','🔞','📵','🚭','❗','❕','❓','❔','‼️','⁉️','🔅','🔆','〽️','⚠️','🚸','🔱','⚜️','🔰','♻️','✅','🈯','💹','❇️','✳️','❎','🌐','💠','Ⓜ️','🌀','💤','🏧','🚾','♿','🅿️','🛗','🈳','🈂️','🛂','🛃','🛄','🛅','🚹','🚺','🚼','⚧️','🚻','🚮','🎦','📶','🈁','🔣','ℹ️','🔤','🔡','🔠','🆖','🆗','🆙','🆒','🆕','🆓','0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🔢','#️⃣','*️⃣','⏏️','▶️','⏸️','⏯️','⏹️','⏺️','⏭️','⏮️','⏩','⏪','⏫','⏬','◀️','🔼','🔽','➡️','⬅️','⬆️','⬇️','↗️','↘️','↙️','↖️','↕️','↔️','↪️','↩️','⤴️','⤵️','🔀','🔁','🔂','🔄','🔃','🎵','🎶','➕','➖','➗','✖️','🟰','♾️','💲','💱','™️','©️','®️','〰️','➰','➿','🔚','🔙','🔛','🔝','🔜','✔️','☑️','🔘','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪','🟤','🔺','🔻','🔸','🔹','🔶','🔷','🔳','🔲','▪️','▫️','◾','◽','◼️','◻️','🟥','🟧','🟨','🟩','🟦','🟪','⬛','⬜','🟫','🔈','🔇','🔉','🔊','🔔','🔕','📣','📢','💬','💭','🗯️','♠️','♣️','♥️','♦️','🃏','🎴','🀄','🕐','🕑','🕒','🕓','🕔','🕕','🕖','🕗','🕘','🕙','🕚','🕛','🕜','🕝','🕞','🕟','🕠','🕡','🕢','🕣','🕤','🕥','🕦','🕧'],
+    'Флаги': ['🏁','🚩','🎌','🏴','🏳️','🏳️‍🌈','🏳️‍⚧️','🏴‍☠️','🇦🇨','🇦🇩','🇦🇪','🇦🇫','🇦🇬','🇦🇮','🇦🇱','🇦🇲','🇦🇴','🇦🇶','🇦🇷','🇦🇸','🇦🇹','🇦🇺','🇦🇼','🇦🇽','🇦🇿','🇧🇦','🇧🇧','🇧🇩','🇧🇪','🇧🇫','🇧🇬','🇧🇭','🇧🇮','🇧🇯','🇧🇱','🇧🇲','🇧🇳','🇧🇴','🇧🇶','🇧🇷','🇧🇸','🇧🇹','🇧🇻','🇧🇼','🇧🇾','🇧🇿','🇨🇦','🇨🇨','🇨🇩','🇨🇫','🇨🇬','🇨🇭','🇨🇮','🇨🇰','🇨🇱','🇨🇲','🇨🇳','🇨🇴','🇨🇵','🇨🇷','🇨🇺','🇨🇻','🇨🇼','🇨🇽','🇨🇾','🇨🇿','🇩🇪','🇩🇬','🇩🇯','🇩🇰','🇩🇲','🇩🇴','🇩🇿','🇪🇦','🇪🇨','🇪🇪','🇪🇬','🇪🇭','🇪🇷','🇪🇸','🇪🇹','🇪🇺','🇫🇮','🇫🇯','🇫🇰','🇫🇲','🇫🇴','🇫🇷','🇬🇦','🇬🇧','🇬🇩','🇬🇪','🇬🇫','🇬🇬','🇬🇭','🇬🇮','🇬🇱','🇬🇲','🇬🇳','🇬🇵','🇬🇶','🇬🇷','🇬🇸','🇬🇹','🇬🇺','🇬🇼','🇬🇾','🇭🇰','🇭🇲','🇭🇳','🇭🇷','🇭🇹','🇭🇺','🇮🇨','🇮🇩','🇮🇪','🇮🇱','🇮🇲','🇮🇳','🇮🇴','🇮🇶','🇮🇷','🇮🇸','🇮🇹','🇯🇪','🇯🇲','🇯🇴','🇯🇵','🇰🇪','🇰🇬','🇰🇭','🇰🇮','🇰🇲','🇰🇳','🇰🇵','🇰🇷','🇰🇼','🇰🇾','🇰🇿','🇱🇦','🇱🇧','🇱🇨','🇱🇮','🇱🇰','🇱🇷','🇱🇸','🇱🇹','🇱🇺','🇱🇻','🇱🇾','🇲🇦','🇲🇨','🇲🇩','🇲🇪','🇲🇫','🇲🇬','🇲🇭','🇲🇰','🇲🇱','🇲🇲','🇲🇳','🇲🇴','🇲🇵','🇲🇶','🇲🇷','🇲🇸','🇲🇹','🇲🇺','🇲🇻','🇲🇼','🇲🇽','🇲🇾','🇲🇿','🇳🇦','🇳🇨','🇳🇪','🇳🇫','🇳🇬','🇳🇮','🇳🇱','🇳🇴','🇳🇵','🇳🇷','🇳🇺','🇳🇿','🇴🇲','🇵🇦','🇵🇪','🇵🇫','🇵🇬','🇵🇭','🇵🇰','🇵🇱','🇵🇲','🇵🇳','🇵🇷','🇵🇸','🇵🇹','🇵🇼','🇵🇾','🇶🇦','🇷🇪','🇷🇴','🇷🇸','🇷🇺','🇷🇼','🇸🇦','🇸🇧','🇸🇨','🇸🇩','🇸🇪','🇸🇬','🇸🇭','🇸🇮','🇸🇯','🇸🇰','🇸🇱','🇸🇲','🇸🇳','🇸🇴','🇸🇷','🇸🇸','🇸🇹','🇸🇻','🇸🇽','🇸🇾','🇸🇿','🇹🇦','🇹🇨','🇹🇩','🇹🇫','🇹🇬','🇹🇭','🇹🇯','🇹🇰','🇹🇱','🇹🇲','🇹🇳','🇹🇴','🇹🇷','🇹🇹','🇹🇻','🇹🇼','🇹🇿','🇺🇦','🇺🇬','🇺🇲','🇺🇳','🇺🇸','🇺🇾','🇺🇿','🇻🇦','🇻🇨','🇻🇪','🇻🇬','🇻🇮','🇻🇳','🇻🇺','🇼🇫','🇼🇸','🇽🇰','🇾🇪','🇾🇹','🇿🇦','🇿🇲','🇿🇼']
+  };
+  const emojiCategoryIcons = {'Смайлы':'😀','Жесты':'👋','Люди':'👤','Любовь':'❤️','Животные':'🐱','Еда':'🍕','Путешествия':'🚗','Предметы':'💻','Символы':'🔣','Флаги':'🏁'};
+  const categories = Object.keys(emojiData);
+  let activeEmojiCat = categories[0];
+  let emojiPickerOpen = false;
+
+  function initEmojiPicker() {
+    const tabsEl = document.getElementById('emojiTabs');
+    tabsEl.innerHTML = categories.map(cat =>
+      `<button class="ep-tab ${cat === activeEmojiCat ? 'active' : ''}" onclick="switchEmojiCat('${cat}')" title="${cat}">${emojiCategoryIcons[cat] || '📁'}</button>`
+    ).join('');
+    renderEmojiGrid();
+  }
+
+  function switchEmojiCat(cat) {
+    activeEmojiCat = cat;
+    document.querySelectorAll('.ep-tab').forEach((t, i) => t.classList.toggle('active', categories[i] === cat));
+    document.getElementById('emojiSearch').value = '';
+    renderEmojiGrid();
+  }
+
+  function renderEmojiGrid(filter) {
+    const grid = document.getElementById('emojiGrid');
+    if (filter) {
+      const all = [];
+      for (const cat of categories) {
+        emojiData[cat].forEach(e => all.push(e));
+      }
+      grid.innerHTML = all.map(e => `<button class="ep-emoji" onclick="insertEmoji('${e}')">${e}</button>`).join('');
+    } else {
+      grid.innerHTML = emojiData[activeEmojiCat].map(e =>
+        `<button class="ep-emoji" onclick="insertEmoji('${e}')">${e}</button>`
+      ).join('');
+    }
+    grid.scrollTop = 0;
+  }
+
+  function filterEmojis(q) {
+    if (!q.trim()) { renderEmojiGrid(); return; }
+    renderEmojiGrid(true);
+  }
+
+  function insertEmoji(emoji) {
+    const inp = document.getElementById('msgIn');
+    const start = inp.selectionStart;
+    const end = inp.selectionEnd;
+    inp.value = inp.value.substring(0, start) + emoji + inp.value.substring(end);
+    inp.selectionStart = inp.selectionEnd = start + emoji.length;
+    inp.focus();
+    autoResize(inp);
+  }
+
+  function toggleEmojiPicker() {
+    emojiPickerOpen = !emojiPickerOpen;
+    document.getElementById('emojiPicker').classList.toggle('show', emojiPickerOpen);
+    if (emojiPickerOpen) initEmojiPicker();
+  }
+
+  document.addEventListener('click', e => {
+    const picker = document.getElementById('emojiPicker');
+    const btn = document.getElementById('emojiToggleBtn');
+    if (emojiPickerOpen && !picker.contains(e.target) && !btn.contains(e.target)) {
+      emojiPickerOpen = false;
+      picker.classList.remove('show');
+    }
+  });
 
   let lastTypingTime = 0;
   function sendTyping() {
