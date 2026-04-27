@@ -221,22 +221,22 @@
   <div class="auth-box">
     <div class="auth-logo">🦁</div>
     <div class="auth-title">Savana</div>
-    <div class="auth-sub">Messenger of the new generation</div>
+    <div class="auth-sub">Мессенджер нового поколения</div>
     {% if error %}<div class="auth-err">{{ error }}</div>{% endif %}
     {% if login %}
     <form method="POST" action="/login">
-      <input class="inp" name="username" placeholder="Username" required autocomplete="username">
-      <input class="inp" name="password" type="password" placeholder="Password" required autocomplete="current-password">
-      <button class="btn" type="submit">Sign In</button>
+      <input class="inp" name="username" placeholder="Логин" required autocomplete="username">
+      <input class="inp" name="password" type="password" placeholder="Пароль" required autocomplete="current-password">
+      <button class="btn" type="submit">Войти</button>
     </form>
-    <a class="auth-link" href="/register">Don't have an account? Register</a>
+    <a class="auth-link" href="/register">Нет аккаунта? Зарегистрироваться</a>
     {% else %}
     <form method="POST" action="/register">
-      <input class="inp" name="username" placeholder="Choose a username" required autocomplete="username" minlength="3">
-      <input class="inp" name="password" type="password" placeholder="Choose a password" required autocomplete="new-password" minlength="4">
-      <button class="btn" type="submit">Register</button>
+      <input class="inp" name="username" placeholder="Придумай логин" required autocomplete="username" minlength="3">
+      <input class="inp" name="password" type="password" placeholder="Придумай пароль" required autocomplete="new-password" minlength="4">
+      <button class="btn" type="submit">Зарегистрироваться</button>
     </form>
-    <a class="auth-link" href="/login">Already have an account? Sign In</a>
+    <a class="auth-link" href="/login">Уже есть аккаунт? Войти</a>
     {% endif %}
   </div>
 </div>
@@ -251,10 +251,10 @@
     <div class="drawer-username">@{{ user.username }}</div>
   </div>
   <div class="drawer-items">
-    <div class="d-item" onclick="closeDrawer(); openModal('profileModal')"><span class="di-icon">👤</span> Profile</div>
-    <div class="d-item" onclick="closeDrawer(); openModal('createModal')"><span class="di-icon">✏️</span> New chat</div>
+    <div class="d-item" onclick="closeDrawer(); openModal('profileModal')"><span class="di-icon">👤</span> Профиль</div>
+    <div class="d-item" onclick="closeDrawer(); openModal('createModal')"><span class="di-icon">✏️</span> Новый чат</div>
     <div class="d-divider"></div>
-    <div class="d-item" onclick="window.location='/logout'"><span class="di-icon">🚪</span> Log out</div>
+    <div class="d-item" onclick="window.location='/logout'"><span class="di-icon">🚪</span> Выйти</div>
   </div>
 </div>
 
@@ -265,7 +265,7 @@
       <div class="logo">🦁 Savana</div>
     </div>
     <div class="s-search">
-      <input type="text" id="searchInput" placeholder="Search..." autocomplete="off" oninput="handleSearch(this.value)">
+      <input type="text" id="searchInput" placeholder="Поиск..." autocomplete="off" oninput="handleSearch(this.value)">
       <div class="search-overlay" id="searchOverlay"></div>
     </div>
     <div class="chat-list" id="chatList">
@@ -280,7 +280,7 @@
             <div class="c-time">{{ ch.last_msg_time[11:16] if ch.last_msg_time else '' }}</div>
           </div>
           <div class="c-preview">
-            {% if ch.last_msg %}<span class="sender">{{ ch.last_msg_user }}: </span>{{ ch.last_msg }}{% else %}Start a conversation...{% endif %}
+            {% if ch.last_msg %}<span class="sender">{{ ch.last_msg_user }}: </span>{{ ch.last_msg }}{% else %}Начните общение...{% endif %}
           </div>
         </div>
       </div>
@@ -291,21 +291,21 @@
   <div class="chat-area" id="chatArea">
     <div class="welcome" id="welcomeScreen">
       <div class="welcome-icon">🦁</div>
-      <h2>Welcome to Savana</h2>
-      <p>Select a chat from the sidebar or search for users to start messaging</p>
+      <h2>Добро пожаловать в Savana</h2>
+      <p>Выберите чат слева или найдите пользователей для начала общения</p>
     </div>
     <div id="chatUI" style="display:none;flex-direction:column;flex:1;min-height:0;">
       <div class="chat-head">
         <button class="icon-btn" id="backBtn" onclick="goBack()" style="display:none;">←</button>
         <div class="ch-avatar" id="chAvatar">?</div>
-        <div class="ch-info"><div class="ch-name" id="chName">Chat</div><div class="ch-status" id="chStatus"></div></div>
-        <button class="game-btn" id="gameBtn" onclick="sendGameInvite()">🎮 Game</button>
+        <div class="ch-info"><div class="ch-name" id="chName">Чат</div><div class="ch-status" id="chStatus"></div></div>
+        <button class="game-btn" id="gameBtn" onclick="sendGameInvite()">🎮 Игра</button>
       </div>
       <div class="msgs-wrap" id="msgs"></div>
-      <div class="edit-mode-bar" id="editBar"><span class="em-label">✏️ Editing message</span><button class="icon-btn" onclick="cancelEdit()">✕</button></div>
+      <div class="edit-mode-bar" id="editBar"><span class="em-label">✏️ Редактирование</span><button class="icon-btn" onclick="cancelEdit()">✕</button></div>
       <div class="reply-bar" id="replyBar"><div class="rb-content"><div class="rb-user" id="replyUser"></div><div class="rb-text" id="replyText"></div></div><button class="icon-btn" onclick="cancelReply()">✕</button></div>
       <div class="input-wrap">
-        <textarea class="msg-input" id="msgIn" placeholder="Message..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this); sendTyping()"></textarea>
+        <textarea class="msg-input" id="msgIn" placeholder="Сообщение..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this); sendTyping()"></textarea>
         <button class="send-btn" onclick="sendMsg()">➤</button>
       </div>
     </div>
@@ -317,28 +317,28 @@
 
 <!-- CONTEXT MENU -->
 <div class="ctx-menu" id="ctxMenu">
-  <div class="ctx-item" onclick="ctxReply()">↩️ Reply</div>
-  <div class="ctx-item" id="ctxEditItem" onclick="ctxEdit()">✏️ Edit</div>
-  <div class="ctx-item" onclick="ctxReact()">😀 React</div>
-  <div class="ctx-item danger" id="ctxDeleteItem" onclick="ctxDelete()">🗑️ Delete</div>
+  <div class="ctx-item" onclick="ctxReply()">↩️ Ответить</div>
+  <div class="ctx-item" id="ctxEditItem" onclick="ctxEdit()">✏️ Редактировать</div>
+  <div class="ctx-item" onclick="ctxReact()">😀 Реакция</div>
+  <div class="ctx-item danger" id="ctxDeleteItem" onclick="ctxDelete()">🗑️ Удалить</div>
 </div>
 
 <!-- PROFILE MODAL -->
 <div class="modal" id="profileModal">
   <div class="modal-box">
-    <div class="modal-head"><h3>👤 Profile</h3><button class="icon-btn" onclick="closeModal('profileModal')">✕</button></div>
+    <div class="modal-head"><h3>👤 Профиль</h3><button class="icon-btn" onclick="closeModal('profileModal')">✕</button></div>
     <div class="modal-body">
       <div style="text-align:center;margin-bottom:16px;">
         <div style="width:72px;height:72px;border-radius:50%;background:var(--accent);display:inline-flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;">{{ user.username[0]|upper }}</div>
         <div style="font-size:18px;font-weight:700;margin-top:8px;">{{ user.username }}</div>
         <div style="font-size:13px;color:var(--muted);">@{{ user.username }}</div>
       </div>
-      <label style="font-size:13px;color:var(--muted);margin-bottom:4px;display:block;">Bio</label>
-      <textarea class="inp" id="bioInput" placeholder="Tell about yourself..." rows="3" style="resize:vertical;min-height:60px;">{{ user.bio or '' }}</textarea>
+      <label style="font-size:13px;color:var(--muted);margin-bottom:4px;display:block;">О себе</label>
+      <textarea class="inp" id="bioInput" placeholder="Расскажите о себе..." rows="3" style="resize:vertical;min-height:60px;">{{ user.bio or '' }}</textarea>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('profileModal')">Cancel</button>
-      <button class="btn" onclick="saveProfile()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('profileModal')">Отмена</button>
+      <button class="btn" onclick="saveProfile()">Сохранить</button>
     </div>
   </div>
 </div>
@@ -346,18 +346,18 @@
 <!-- CREATE CHAT MODAL -->
 <div class="modal" id="createModal">
   <div class="modal-box">
-    <div class="modal-head"><h3>✏️ New Chat</h3><button class="icon-btn" onclick="closeModal('createModal')">✕</button></div>
+    <div class="modal-head"><h3>✏️ Новый чат</h3><button class="icon-btn" onclick="closeModal('createModal')">✕</button></div>
     <div class="modal-body">
       <div class="radio-group">
-        <label><input type="radio" name="chatType" value="group" checked> 👥 Group</label>
-        <label><input type="radio" name="chatType" value="channel"> 📢 Channel</label>
+        <label><input type="radio" name="chatType" value="group" checked> 👥 Группа</label>
+        <label><input type="radio" name="chatType" value="channel"> 📢 Канал</label>
       </div>
-      <input class="inp" id="newChatName" placeholder="Chat name" required>
-      <textarea class="inp" id="newChatDesc" placeholder="Description (optional)" rows="2" style="resize:vertical;"></textarea>
+      <input class="inp" id="newChatName" placeholder="Название чата" required>
+      <textarea class="inp" id="newChatDesc" placeholder="Описание (необязательно)" rows="2" style="resize:vertical;"></textarea>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal('createModal')">Cancel</button>
-      <button class="btn" onclick="createGroupChat()">Create</button>
+      <button class="btn btn-ghost" onclick="closeModal('createModal')">Отмена</button>
+      <button class="btn" onclick="createGroupChat()">Создать</button>
     </div>
   </div>
 </div>
@@ -365,9 +365,9 @@
 <!-- INVITE MODAL -->
 <div class="modal" id="inviteModal">
   <div class="modal-box">
-    <div class="modal-head"><h3>➕ Add Member</h3><button class="icon-btn" onclick="closeModal('inviteModal')">✕</button></div>
+    <div class="modal-head"><h3>➕ Добавить участника</h3><button class="icon-btn" onclick="closeModal('inviteModal')">✕</button></div>
     <div class="modal-body">
-      <input class="inp" id="inviteSearch" placeholder="Search users..." oninput="searchInvite(this.value)">
+      <input class="inp" id="inviteSearch" placeholder="Поиск пользователей..." oninput="searchInvite(this.value)">
       <div id="inviteResults" style="max-height:200px;overflow-y:auto;margin-top:8px;"></div>
     </div>
   </div>
@@ -376,9 +376,9 @@
 <!-- GAME MODAL -->
 <div class="modal" id="gameBoardModal" style="z-index:500;">
   <div class="modal-box" style="max-width:420px;">
-    <div class="modal-head"><h3>🔴 Checkers</h3><div id="gameStatus" style="font-size:13px;color:var(--muted);">Red's turn</div><button class="icon-btn" onclick="closeModal('gameBoardModal')">✕</button></div>
+    <div class="modal-head"><h3>🔴 Шашки</h3><div id="gameStatus" style="font-size:13px;color:var(--muted);">Ход красных</div><button class="icon-btn" onclick="closeModal('gameBoardModal')">✕</button></div>
     <div class="modal-body" style="padding:12px;"><canvas id="checkersCanvas" width="360" height="360"></canvas></div>
-    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('gameBoardModal')">Close</button></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('gameBoardModal')">Закрыть</button></div>
   </div>
 </div>
 
@@ -401,11 +401,20 @@
   }
 
   const socket = io({
-    transports: ['polling'],
+    transports: ['polling', 'websocket'],
+    upgrade: true,
     forceNew: true
   });
 
+  const seenMsgIds = new Set();
+
   socket.on('msg', data => {
+    if (data.id && seenMsgIds.has(data.id)) return;
+    if (data.id) seenMsgIds.add(data.id);
+    if (seenMsgIds.size > 500) {
+      const iter = seenMsgIds.values();
+      for (let i = 0; i < 200; i++) seenMsgIds.delete(iter.next().value);
+    }
     updateChatPreview(data.cid, data.text, data.time, data.user);
     if (data.cid == currentCid) {
       appendMsg(data);
@@ -413,9 +422,13 @@
     }
   });
 
+  socket.on('connect', () => {
+    if (currentCid) socket.emit('join', {cid: currentCid});
+  });
+
   socket.on('game_invite', data => {
     if (data.from_uid === myUid) return;
-    if (confirm(data.from_user + ' invites you to play Checkers! Accept?')) {
+    if (confirm(data.from_user + ' приглашает вас сыграть в Шашки! Принять?')) {
       socket.emit('game_accept', { cid: data.cid, game_id: data.game_id });
     }
   });
@@ -437,7 +450,7 @@
       if (!editedEl) {
         editedEl = document.createElement('span');
         editedEl.className = 'msg-edited';
-        editedEl.textContent = 'edited';
+        editedEl.textContent = 'изменено';
         const meta = el.querySelector('.msg-meta');
         if (meta) meta.prepend(editedEl);
       }
@@ -449,7 +462,7 @@
     if (el) {
       el.classList.add('deleted');
       const textEl = el.querySelector('.msg-text');
-      if (textEl) textEl.textContent = 'Message deleted';
+      if (textEl) textEl.textContent = 'Сообщение удалено';
       const reactions = el.querySelector('.msg-reactions');
       if (reactions) reactions.remove();
     }
@@ -463,11 +476,11 @@
   socket.on('typing', data => {
     if (data.cid != currentCid || data.user === myName) return;
     const st = document.getElementById('chStatus');
-    st.textContent = data.user + ' is typing...';
+    st.textContent = data.user + ' печатает...';
     st.classList.add('typing');
     clearTimeout(typingTimeout);
     typingTimeout = setTimeout(() => {
-      st.textContent = 'online';
+      st.textContent = 'в сети';
       st.classList.remove('typing');
     }, 2500);
   });
@@ -550,7 +563,7 @@
     board[tr][tc] = board[fr][fc]; board[fr][fc] = null;
     if ((board[tr][tc]==='red' && tr===0) || (board[tr][tc]==='black' && tr===7)) board[tr][tc] = board[tr][tc]+'_king';
     gameTurn = gameTurn === 'red' ? 'black' : 'red';
-    document.getElementById('gameStatus').textContent = (gameTurn==='red'?"Red's":"Black's") + ' turn';
+    document.getElementById('gameStatus').textContent = 'Ход ' + (gameTurn==='red'?'красных':'чёрных');
     drawBoard();
   }
 
@@ -563,7 +576,7 @@
     if (!currentCid) return;
     const gameId = Date.now().toString(36);
     socket.emit('game_invite', {cid: currentCid, game_id: gameId});
-    showToast('Game invite sent!');
+    showToast('Приглашение отправлено!');
   }
 
   // ── CHAT ──
@@ -624,7 +637,7 @@
     socket.emit('join', {cid: cid});
     fetch('/api/chat/' + cid).then(r=>r.json()).then(data => {
       const chat = data.chat;
-      let chatName = chat.name || 'Chat';
+      let chatName = chat.name || 'Чат';
       let avatarText = chatName[0].toUpperCase();
       if (chat.type === 'private') {
         const partner = data.members.find(m => m.id != myUid);
@@ -639,9 +652,9 @@
       document.getElementById('chAvatar').textContent = avatarText;
       const statusEl = document.getElementById('chStatus');
       if (chat.type === 'private') {
-        statusEl.textContent = 'online';
+        statusEl.textContent = 'в сети';
       } else {
-        statusEl.textContent = data.members.length + ' members';
+        statusEl.textContent = data.members.length + ' участников';
       }
       data.messages.forEach(m => appendMsg(m));
       scrollDown();
@@ -659,11 +672,11 @@
     const today = new Date().toISOString().slice(0,10);
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
     let label = d;
-    if (d === today) label = 'Today';
-    else if (d === yesterday) label = 'Yesterday';
+    if (d === today) label = 'Сегодня';
+    else if (d === yesterday) label = 'Вчера';
     else {
       const dt = new Date(d);
-      label = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      label = dt.toLocaleDateString('ru-RU', { month: 'long', day: 'numeric', year: 'numeric' });
     }
     div.innerHTML = `<span>${label}</span>`;
     box.appendChild(div);
@@ -702,9 +715,9 @@
     row.innerHTML = `<div class="msg-bubble ${isDeleted ? 'deleted' : ''}" data-id="${m.id}" data-uid="${m.uid || m.user_id}" oncontextmenu="showCtxMenu(event, ${m.id}, ${m.uid || m.user_id})">
       ${!isMe && !isDeleted ? `<div class="msg-sender">${escHtml(m.user||m.username||'')}</div>` : ''}
       ${replyHtml}
-      <div class="msg-text">${isDeleted ? 'Message deleted' : escHtml(text)}</div>
+      <div class="msg-text">${isDeleted ? 'Сообщение удалено' : escHtml(text)}</div>
       <div class="msg-meta">
-        ${isEdited && !isDeleted ? '<span class="msg-edited">edited</span>' : ''}
+        ${isEdited && !isDeleted ? '<span class="msg-edited">изменено</span>' : ''}
         <span class="msg-time">${time}</span>
       </div>
       ${reactionsHtml}
@@ -858,7 +871,7 @@
 
   function ctxDelete() {
     hideCtxMenu();
-    if (confirm('Delete this message?')) {
+    if (confirm('Удалить это сообщение?')) {
       fetch('/api/msg/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:ctxMsgId})});
     }
   }
@@ -899,7 +912,7 @@
       fetch('/api/search?q='+encodeURIComponent(q)).then(r=>r.json()).then(data => {
         let html = '';
         if (data.users && data.users.length > 0) {
-          html += '<div class="so-section">Users</div>';
+          html += '<div class="so-section">Пользователи</div>';
           data.users.forEach(u => {
             html += `<div class="so-item" onclick="startPrivateChat(${u.id},'${escHtml(u.username)}')">
               <div class="so-avatar">${u.username[0].toUpperCase()}</div>
@@ -908,7 +921,7 @@
           });
         }
         if (data.chats && data.chats.length > 0) {
-          html += '<div class="so-section">Chats</div>';
+          html += '<div class="so-section">Чаты</div>';
           data.chats.forEach(c => {
             html += `<div class="so-item" onclick="loadChat(${c.id})">
               <div class="so-avatar">${c.type === 'channel' ? '📢' : (c.name||'?')[0].toUpperCase()}</div>
@@ -916,7 +929,7 @@
             </div>`;
           });
         }
-        if (!html) html = '<div class="so-empty">No results found</div>';
+        if (!html) html = '<div class="so-empty">Ничего не найдено</div>';
         document.getElementById('searchOverlay').innerHTML = html;
         document.getElementById('searchOverlay').classList.add('show');
       });
@@ -935,7 +948,7 @@
     const name = document.getElementById('newChatName').value.trim();
     const desc = document.getElementById('newChatDesc').value.trim();
     const type = document.querySelector('input[name="chatType"]:checked').value;
-    if (!name) { showToast('Please enter a chat name'); return; }
+    if (!name) { showToast('Введите название чата'); return; }
     fetch('/api/create_chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({type:type, name:name, desc:desc})})
       .then(r=>r.json()).then(d => {
         if (d.ok) {
@@ -943,9 +956,9 @@
           document.getElementById('newChatName').value = '';
           document.getElementById('newChatDesc').value = '';
           loadChat(d.id);
-          showToast('Chat created!');
+          showToast('Чат создан!');
         } else {
-          showToast('Error: ' + (d.error || 'Failed'));
+          showToast('Ошибка: ' + (d.error || 'не удалось'));
         }
       });
   }
@@ -955,8 +968,8 @@
     const bio = document.getElementById('bioInput').value.trim();
     fetch('/api/profile', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({bio:bio})})
       .then(r=>r.json()).then(d => {
-        if (d.ok) { closeModal('profileModal'); showToast('Profile saved!'); }
-        else showToast('Error saving profile');
+        if (d.ok) { closeModal('profileModal'); showToast('Профиль сохранён!'); }
+        else showToast('Ошибка сохранения профиля');
       });
   }
 
@@ -971,7 +984,7 @@
           <div class="so-name">@${escHtml(u.username)}</div>
         </div>`;
       });
-      document.getElementById('inviteResults').innerHTML = html || '<div class="so-empty">No users found</div>';
+      document.getElementById('inviteResults').innerHTML = html || '<div class="so-empty">Пользователи не найдены</div>';
     });
   }
 
@@ -979,8 +992,8 @@
     if (!currentCid) return;
     fetch('/api/invite', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({chat_id:currentCid, target_uid:uid})})
       .then(r=>r.json()).then(d => {
-        if (d.ok) { showToast(username + ' added!'); closeModal('inviteModal'); }
-        else showToast('Error: ' + (d.error === 'exists' ? 'Already a member' : d.error));
+        if (d.ok) { showToast(username + ' добавлен!'); closeModal('inviteModal'); }
+        else showToast('Ошибка: ' + (d.error === 'exists' ? 'Уже участник' : d.error));
       });
   }
 

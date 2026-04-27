@@ -109,7 +109,7 @@ def index():
         return render_template('index.html', user=user, chats=chats)
     except Exception as e:
         log.exception('Index page error')
-        return render_template('index.html', error='Something went wrong. Please try again.',
+        return render_template('index.html', error='\u041f\u0440\u043e\u0438\u0437\u043e\u0448\u043b\u0430 \u043e\u0448\u0438\u0431\u043a\u0430. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437.',
                                login=True, user=None, chats=[])
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -458,30 +458,32 @@ def on_msg(data):
     conn.commit()
     cur.close()
     conn.close()
+    now = datetime.now()
     msg_data = {
         'id': mid,
         'cid': cid,
         'uid': user['id'],
         'user': user['username'],
         'text': content,
-        'time': datetime.now().strftime('%H:%M'),
+        'time': now.strftime('%H:%M'),
+        'created_at': now.isoformat(),
         'reply_to': reply_to,
         'reply_content': reply_content,
         'reply_user': reply_user,
         'edited': 0,
         'deleted': 0
     }
-    # Send to chat room (for those already in it)
     emit('msg', msg_data, room=f'chat_{cid}')
-    # Also notify each member personally via user room
     try:
         conn2 = get_db(); cur2 = conn2.cursor()
         cur2.execute('SELECT user_id FROM chat_members WHERE chat_id=%s', (cid,))
         members = cur2.fetchall()
         cur2.close(); conn2.close()
         for m in members:
-            socketio.emit('msg', msg_data, room=f'user_{m["user_id"]}')
-    except: pass
+            if m['user_id'] != user['id']:
+                socketio.emit('msg', msg_data, room=f'user_{m["user_id"]}')
+    except Exception:
+        pass
 @socketio.on('typing')
 def on_typing(data):
     user = get_user()
